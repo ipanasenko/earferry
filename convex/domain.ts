@@ -100,3 +100,27 @@ export function publishedDate(metadata: {
 export function isWaitingLiveStatus(status: unknown): boolean {
   return !["not_live", "was_live"].includes(String(status));
 }
+
+export function waitingDescription(metadata: {
+  live_status?: string;
+  release_timestamp?: number;
+}): string {
+  if (metadata.live_status === "is_live") return "Live now: waiting for the recording";
+  if (metadata.live_status === "post_live") {
+    return "Live ended: waiting for YouTube to finish processing";
+  }
+  if (Number.isFinite(metadata.release_timestamp)) {
+    const when = new Date(Number(metadata.release_timestamp) * 1_000);
+    return `Scheduled for ${when.toLocaleString("en", { dateStyle: "medium", timeStyle: "short" })}`;
+  }
+  if (metadata.live_status === "is_upcoming") return "Upcoming: waiting for the video";
+  return "Waiting until YouTube reports that the video is fully available";
+}
+
+export function nextCheckDelay(metadata: { release_timestamp?: number }, now = Date.now()): number {
+  const scheduled = Number(metadata.release_timestamp) * 1_000;
+  if (Number.isFinite(scheduled) && scheduled > now) {
+    return Math.min(scheduled + 5 * 60_000 - now, 30 * 60_000);
+  }
+  return 5 * 60_000;
+}
