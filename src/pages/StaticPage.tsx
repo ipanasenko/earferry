@@ -6,12 +6,10 @@ import { LogoMarkSmall } from "../components/icons";
 export function StaticPageLayout({
   title,
   meta,
-  footerLinks,
   children,
 }: {
   title: string;
   meta: React.ReactNode;
-  footerLinks: { to: string; label: string }[];
   children: React.ReactNode;
 }) {
   const { signOut } = useClerk();
@@ -52,7 +50,7 @@ export function StaticPageLayout({
           <div className="pb-7">{meta}</div>
           {children}
         </main>
-        <Footer links={footerLinks} showMark={false} />
+        <Footer />
       </div>
     </div>
   );

@@ -24,11 +24,6 @@ export function SupportPage() {
           Something stuck at the pier? Most crossings can be rescued.
         </div>
       }
-      footerLinks={[
-        { to: "/", label: "Queue" },
-        { to: "/privacy", label: "Privacy" },
-        { to: "/terms", label: "Terms" },
-      ]}
     >
       <div className="flex flex-col gap-3.5">
         {FAQ.map((entry) => (

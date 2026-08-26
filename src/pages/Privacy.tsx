@@ -28,11 +28,6 @@ export function PrivacyPage() {
     <StaticPageLayout
       title="Privacy"
       meta={<div className="text-text-muted text-sm/4">Last updated August 25, 2026</div>}
-      footerLinks={[
-        { to: "/", label: "Queue" },
-        { to: "/terms", label: "Terms" },
-        { to: "/support", label: "Support" },
-      ]}
     >
       <div className="flex flex-col gap-6">
         {SECTIONS.map((s) => (
