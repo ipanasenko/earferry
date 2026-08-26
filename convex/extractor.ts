@@ -3,6 +3,7 @@ import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import {
+  describeFailure,
   isWaitingLiveStatus,
   nextCheckDelay,
   publishedDate,
@@ -75,20 +76,32 @@ async function extractorError(response: Response, fallback: string): Promise<str
   return (message || fallback).slice(0, 500);
 }
 
+// A hung extractor must not hang the calling action with it: an unanswered
+// fetch would strand the item in its in-flight status until the lease watchdog
+// picks it up. yt-dlp probes are the slowest call and finish well under this.
+const EXTRACTOR_FETCH_TIMEOUT_MS = 120_000;
+
 async function extractorFetch(
   baseUrl: string,
   secret: string,
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  return fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${secret}`,
-      ...(init.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EXTRACTOR_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(`${baseUrl}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${secret}`,
+        ...(init.headers ?? {}),
+      },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function probeVideo(
@@ -152,11 +165,8 @@ export const run = internalAction({
     const { baseUrl, secret } = config;
 
     try {
-      await ctx.runMutation(internal.items.setStatus, {
-        itemId: args.itemId,
-        status: "probing",
-        phase: "Checking video",
-      });
+      const started = await ctx.runMutation(internal.items.beginProbe, { itemId: args.itemId });
+      if (!started) return;
       const metadata = await probeVideo(baseUrl, secret, item.url);
       const duration = Number(metadata.duration);
       await ctx.runMutation(internal.items.recordProbe, {
@@ -201,7 +211,13 @@ export const run = internalAction({
         });
         return;
       }
-      await ctx.runMutation(internal.items.markFailed, { itemId: args.itemId, detail });
+      // Transient trouble (network, extractor restart, YouTube throttling)
+      // gets the same bounded auto-retry as extraction failures do.
+      await ctx.runMutation(internal.items.retryOrFail, {
+        itemId: args.itemId,
+        detail,
+        retryable: !describeFailure(detail).permanent,
+      });
     }
   },
 });

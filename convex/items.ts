@@ -120,7 +120,11 @@ export const retry = mutation({
   handler: async (ctx, args) => {
     await requirePaidEntitlement(ctx);
     const item = await ownedItem(ctx, args.id);
-    if (!["failed", "waiting", "ready", "extracting", "uploading"].includes(item.status)) {
+    if (
+      !["failed", "waiting", "ready", "extracting", "uploading", "queued", "probing"].includes(
+        item.status,
+      )
+    ) {
       throw new ConvexError("This item cannot be retried yet");
     }
     if (["extracting", "uploading"].includes(item.status)) {
@@ -217,6 +221,37 @@ export const setStatus = internalMutation({
       phase: args.phase,
       error: args.error,
     });
+  },
+});
+
+export const beginProbe = internalMutation({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || !["queued", "probing"].includes(item.status)) return false;
+    const now = Date.now();
+    await ctx.db.patch(args.itemId, {
+      status: "probing",
+      phase: "Checking video",
+      extractionStartedAt: now,
+    });
+    await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.items.recoverProbe, {
+      itemId: args.itemId,
+      startedAt: now,
+    });
+    return true;
+  },
+});
+
+// A probe whose action died (deploy, crash, killed runtime) leaves the item in
+// "probing" with nobody coming back for it. This fires one lease later;
+// startedAt ties it to a specific attempt so a newer probe is left alone.
+export const recoverProbe = internalMutation({
+  args: { itemId: v.id("items"), startedAt: v.number() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.status !== "probing" || item.extractionStartedAt !== args.startedAt) return;
+    await retryOrFailItem(ctx, item, "The video check stopped before it finished", true);
   },
 });
 
@@ -359,33 +394,42 @@ export const finishDelete = internalMutation({
 const MAX_AUTO_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 60_000;
 
+async function retryOrFailItem(
+  ctx: MutationCtx,
+  item: Doc<"items">,
+  detail: string,
+  retryable: boolean,
+) {
+  const attempts = item.attempts ?? 0;
+  if (retryable && attempts < MAX_AUTO_RETRIES) {
+    const delay = RETRY_BASE_DELAY_MS * 2 ** attempts; // 1m, 2m, 4m
+    await ctx.db.patch(item._id, {
+      status: "queued",
+      attempts: attempts + 1,
+      phase: `Extraction failed, retrying (attempt ${attempts + 2})`,
+      error: undefined,
+      extractionStartedAt: undefined,
+      lastHeartbeatAt: undefined,
+    });
+    await ctx.scheduler.runAfter(delay, internal.extractor.run, { itemId: item._id });
+    return;
+  }
+  const failure = describeFailure(detail);
+  await ctx.db.patch(item._id, {
+    status: "failed",
+    phase: undefined,
+    error: `${failure.message}: ${detail}`.slice(0, 500),
+    extractionStartedAt: undefined,
+    lastHeartbeatAt: undefined,
+  });
+}
+
 export const retryOrFail = internalMutation({
   args: { itemId: v.id("items"), detail: v.string(), retryable: v.boolean() },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || item.status === "ready") return;
-    const attempts = item.attempts ?? 0;
-    if (args.retryable && attempts < MAX_AUTO_RETRIES) {
-      const delay = RETRY_BASE_DELAY_MS * 2 ** attempts; // 1m, 2m, 4m
-      await ctx.db.patch(args.itemId, {
-        status: "queued",
-        attempts: attempts + 1,
-        phase: `Extraction failed, retrying (attempt ${attempts + 2})`,
-        error: undefined,
-        extractionStartedAt: undefined,
-        lastHeartbeatAt: undefined,
-      });
-      await ctx.scheduler.runAfter(delay, internal.extractor.run, { itemId: args.itemId });
-      return;
-    }
-    const failure = describeFailure(args.detail);
-    await ctx.db.patch(args.itemId, {
-      status: "failed",
-      phase: undefined,
-      error: `${failure.message}: ${args.detail}`.slice(0, 500),
-      extractionStartedAt: undefined,
-      lastHeartbeatAt: undefined,
-    });
+    await retryOrFailItem(ctx, item, args.detail, args.retryable);
   },
 });
 
