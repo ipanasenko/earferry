@@ -1,0 +1,10 @@
+pre-commit:
+  jobs:
+    - name: Format
+      glob: "*.{ts,tsx,js,jsx,json,css}"
+      run: bunx oxfmt {staged_files}
+      stage_fixed: true
+    - name: Normalize Bun registry
+      glob: "bun.lock"
+      run: bun run registry:normalize
+      stage_fixed: true

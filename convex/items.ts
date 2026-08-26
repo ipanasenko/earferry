@@ -1,0 +1,224 @@
+import { v } from "convex/values";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+import { normalizeYouTubeUrl, youtubeVideoId, describeFailure } from "./domain";
+import { currentUser, getOrCreateUser } from "./users";
+
+const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+
+async function topPosition(ctx: MutationCtx, userId: Id<"users">): Promise<number> {
+  const top = await ctx.db
+    .query("items")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .order("desc")
+    .first();
+  return (top?.position ?? 0) + 1;
+}
+
+async function ownedItem(ctx: MutationCtx, id: Id<"items">): Promise<Doc<"items">> {
+  const user = await getOrCreateUser(ctx);
+  const item = await ctx.db.get(id);
+  if (!item || item.userId !== user._id) throw new Error("Item not found");
+  return item;
+}
+
+function scheduleExtraction(ctx: MutationCtx, itemId: Id<"items">) {
+  return ctx.scheduler.runAfter(0, internal.extractor.run, { itemId });
+}
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await currentUser(ctx);
+    if (!user) return [];
+    return await ctx.db
+      .query("items")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .collect();
+  },
+});
+
+export const add = mutation({
+  args: { url: v.string() },
+  handler: async (ctx, args) => {
+    const url = normalizeYouTubeUrl(args.url);
+    const videoId = youtubeVideoId(url);
+    const user = await getOrCreateUser(ctx);
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("items")
+      .withIndex("by_user_video", (q) => q.eq("userId", user._id).eq("videoId", videoId))
+      .unique();
+
+    if (existing) {
+      const position = await topPosition(ctx, user._id);
+      if (existing.status === "failed") {
+        // A re-added failed item gets a fresh attempt, not just a new spot.
+        await ctx.db.patch(existing._id, {
+          position,
+          addedAt: now,
+          status: "queued",
+          phase: undefined,
+          error: undefined,
+        });
+        await scheduleExtraction(ctx, existing._id);
+      } else {
+        await ctx.db.patch(existing._id, { position, addedAt: now });
+      }
+      return existing._id;
+    }
+
+    const itemId = await ctx.db.insert("items", {
+      userId: user._id,
+      url,
+      videoId,
+      addedAt: now,
+      position: await topPosition(ctx, user._id),
+      status: "queued",
+    });
+    await scheduleExtraction(ctx, itemId);
+    return itemId;
+  },
+});
+
+export const remove = mutation({
+  args: { id: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ownedItem(ctx, args.id);
+    if (["probing", "extracting", "uploading"].includes(item.status)) {
+      await ctx.scheduler.runAfter(0, internal.extractor.cancel, { itemId: item._id });
+    }
+    // TODO: delete the R2 object for item.r2Key once R2 is wired.
+    await ctx.db.delete(item._id);
+  },
+});
+
+export const retry = mutation({
+  args: { id: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ownedItem(ctx, args.id);
+    if (!["failed", "waiting", "ready"].includes(item.status)) {
+      throw new Error("This item cannot be retried yet");
+    }
+    await ctx.db.patch(item._id, {
+      status: "queued",
+      phase: undefined,
+      error: undefined,
+    });
+    await scheduleExtraction(ctx, item._id);
+  },
+});
+
+// ---- Internal plumbing used by the extractor action and HTTP callbacks. ----
+
+export const get = internalQuery({
+  args: { itemId: v.id("items") },
+  handler: (ctx, args) => ctx.db.get(args.itemId),
+});
+
+export const userByFeedToken = internalQuery({
+  args: { feedToken: v.string() },
+  handler: (ctx, args) =>
+    ctx.db
+      .query("users")
+      .withIndex("by_feed_token", (q) => q.eq("feedToken", args.feedToken))
+      .unique(),
+});
+
+export const readyItemsForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const items = await ctx.db
+      .query("items")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
+    return items.filter((item) => item.status === "ready");
+  },
+});
+
+export const setStatus = internalMutation({
+  args: {
+    itemId: v.id("items"),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("probing"),
+      v.literal("waiting"),
+      v.literal("extracting"),
+      v.literal("uploading"),
+      v.literal("ready"),
+      v.literal("failed"),
+    ),
+    phase: v.optional(v.string()),
+    error: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item) return;
+    await ctx.db.patch(args.itemId, {
+      status: args.status,
+      phase: args.phase,
+      error: args.error,
+    });
+  },
+});
+
+export const recordProbe = internalMutation({
+  args: {
+    itemId: v.id("items"),
+    title: v.optional(v.string()),
+    channel: v.optional(v.string()),
+    description: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+    artworkUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, { itemId, ...metadata }) => {
+    const item = await ctx.db.get(itemId);
+    if (!item) return;
+    await ctx.db.patch(itemId, metadata);
+  },
+});
+
+export const markReady = internalMutation({
+  args: {
+    itemId: v.id("items"),
+    r2Key: v.optional(v.string()),
+    sizeBytes: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item) return;
+    await ctx.db.patch(args.itemId, {
+      status: "ready",
+      phase: undefined,
+      error: undefined,
+      r2Key: args.r2Key,
+      sizeBytes: args.sizeBytes,
+      expiresAt: Date.now() + AUDIO_RETENTION_MS,
+    });
+  },
+});
+
+export const markFailed = internalMutation({
+  args: { itemId: v.id("items"), detail: v.string() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.status === "ready") return;
+    const failure = describeFailure(args.detail);
+    await ctx.db.patch(args.itemId, {
+      status: "failed",
+      phase: undefined,
+      error: `${failure.message} — ${args.detail}`.slice(0, 500),
+    });
+  },
+});

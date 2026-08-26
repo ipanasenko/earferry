@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme {
+  --color-*: initial;
+  --color-ink: #1b3a5b;
+  --color-wave: #6fa8c9;
+  --color-accent: #f5b700;
+  --color-text: #101418;
+  --color-text-muted: #5a6470;
+  --color-border: #e8ebee;
+  --color-surface: #f4f7f9;
+  --color-background: #ffffff;
+  --color-background-dark: #101418;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --text-*: initial;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 28px;
+  --text-display: 44px;
+
+  --font-weight-*: initial;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --font-weight-extrabold: 800;
+
+  --tracking-*: initial;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-caps: 0.08em;
+
+  --leading-*: initial;
+  --leading-sm: 19px;
+  --leading-base: 22px;
+  --leading-display: 48px;
+
+  --breakpoint-*: initial;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
+  --container-content: 1312px;
+
+  --spacing: 4px;
+
+  --radius-*: initial;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-pill: 999px;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--color-text);
+}
+
+.page-gradient {
+  background-image: linear-gradient(
+    in oklab 180deg,
+    oklab(98% -0.002 -0.003) 0%,
+    oklab(94.8% -0.006 -0.01) 100%
+  );
+}
