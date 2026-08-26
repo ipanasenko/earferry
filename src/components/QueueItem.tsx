@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api, type QueueItemDoc } from "../lib/api";
+import { track } from "../lib/analytics";
 import { FailedThumbMark, PlayIcon, RetryIcon, TrashIcon, YoutubeIcon } from "./icons";
 
 type UiStatus = "ready" | "extracting" | "waiting" | "failed";
@@ -149,7 +150,13 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
             <PlayIcon stroke="var(--color-text-muted)" />
           </IconButton>
         ) : ui === "failed" ? (
-          <IconButton title="Retry extraction" onClick={() => void retry({ id: item._id })}>
+          <IconButton
+            title="Retry extraction"
+            onClick={() => {
+              track("item_retried");
+              void retry({ id: item._id });
+            }}
+          >
             <RetryIcon stroke="var(--color-text-muted)" />
           </IconButton>
         ) : (
@@ -171,7 +178,14 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
         >
           <YoutubeIcon />
         </IconButton>
-        <IconButton title="Delete" variant="danger" onClick={() => void remove({ id: item._id })}>
+        <IconButton
+          title="Delete"
+          variant="danger"
+          onClick={() => {
+            track("item_removed");
+            void remove({ id: item._id });
+          }}
+        >
           <TrashIcon stroke="var(--color-danger)" />
         </IconButton>
       </div>

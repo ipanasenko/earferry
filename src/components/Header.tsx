@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import { useQuery } from "convex/react";
 import { api } from "../lib/api";
+import { track } from "../lib/analytics";
 import { LogoMark } from "./icons";
 import { Tooltip } from "./Tooltip";
 
@@ -18,6 +19,7 @@ function FeedUrlButton() {
   async function copy() {
     if (!feedUrl) return;
     await navigator.clipboard.writeText(feedUrl);
+    track("feed_url_copied");
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   }
@@ -86,6 +88,7 @@ export function Header() {
         <SignInButton mode="modal">
           <button
             type="button"
+            onClick={() => track("signin_clicked")}
             className="flex items-center h-9.5 px-5 rounded-pill bg-ink font-semibold text-background text-sm/4 cursor-pointer hover:opacity-90 transition-opacity"
           >
             Sign in

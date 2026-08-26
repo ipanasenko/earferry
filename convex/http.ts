@@ -3,6 +3,7 @@ import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { buildFeed, signedMediaUrl } from "./feed";
+import { capture } from "./analytics";
 
 const http = httpRouter();
 
@@ -31,6 +32,7 @@ http.route({
     const user = await ctx.runQuery(internal.items.userByFeedToken, { feedToken });
     if (!user) return json({ error: "Not found" }, 404);
 
+    await capture("feed_fetched", user.clerkId);
     const items = await ctx.runQuery(internal.items.readyItemsForUser, { userId: user._id });
     const xml = await buildFeed(items, url.origin, user.feedToken);
     return new Response(xml, {
@@ -88,6 +90,10 @@ http.route({
       publishedAt: Number(body.publishedAt) > 0 ? Number(body.publishedAt) : undefined,
       mediaUrl,
     });
+    await capture("extraction_completed", found.user.clerkId, {
+      item_id: itemId,
+      video_id: found.item.videoId,
+    });
     return json({ ready: true });
   }),
 });
@@ -112,6 +118,13 @@ http.route({
       itemId: body.itemId as Id<"items">,
       detail: detail.slice(0, 500),
       retryable: body.retryable === true,
+    });
+    const found = await ctx
+      .runQuery(internal.items.itemWithUser, { itemId: body.itemId as Id<"items"> })
+      .catch(() => null);
+    await capture("extraction_failed", found?.user.clerkId ?? body.itemId, {
+      item_id: body.itemId,
+      reason: detail.slice(0, 200),
     });
     return json({ failed: true });
   }),
