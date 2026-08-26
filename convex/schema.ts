@@ -9,6 +9,7 @@ export const itemStatus = v.union(
   v.literal("uploading"),
   v.literal("ready"),
   v.literal("failed"),
+  v.literal("deleting"),
 );
 
 export default defineSchema({

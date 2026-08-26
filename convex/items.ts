@@ -44,11 +44,12 @@ export const list = query({
   handler: async (ctx) => {
     const user = await currentUser(ctx);
     if (!user) return [];
-    return await ctx.db
+    const items = await ctx.db
       .query("items")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect();
+    return items.filter((item) => item.status !== "deleting");
   },
 });
 
@@ -68,7 +69,10 @@ export const add = mutation({
 
     if (existing) {
       const position = await topPosition(ctx, user._id);
-      if (existing.status === "failed") {
+      if (existing.status === "deleting") {
+        throw new Error("This video is still being deleted. Try again shortly");
+      }
+      if (existing.status === "failed" || isExpiredReady(existing, now)) {
         // A re-added failed item gets a fresh attempt, not just a new spot.
         await ctx.db.patch(existing._id, {
           position,
@@ -77,6 +81,10 @@ export const add = mutation({
           phase: undefined,
           error: undefined,
           attempts: 0,
+          r2Key: undefined,
+          sizeBytes: undefined,
+          mediaUrl: undefined,
+          expiresAt: undefined,
         });
         await scheduleExtraction(ctx, existing._id);
       } else {
@@ -102,9 +110,8 @@ export const remove = mutation({
   args: { id: v.id("items") },
   handler: async (ctx, args) => {
     const item = await ownedItem(ctx, args.id);
-    // The Worker cancels a running job and deletes the R2 objects.
-    await ctx.scheduler.runAfter(0, internal.extractor.cancel, { itemId: item._id });
-    await ctx.db.delete(item._id);
+    await ctx.db.patch(item._id, { status: "deleting", phase: "Removing files" });
+    await ctx.scheduler.runAfter(0, internal.extractor.deleteItem, { itemId: item._id });
   },
 });
 
@@ -174,6 +181,7 @@ export const setStatus = internalMutation({
       v.literal("uploading"),
       v.literal("ready"),
       v.literal("failed"),
+      v.literal("deleting"),
     ),
     phase: v.optional(v.string()),
     error: v.optional(v.string()),
@@ -307,6 +315,16 @@ export const deleteExpired = internalMutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || item.expiresAt !== args.observedExpiresAt || !isExpiredReady(item)) return false;
+    await ctx.db.delete(args.itemId);
+    return true;
+  },
+});
+
+export const finishDelete = internalMutation({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.status !== "deleting") return false;
     await ctx.db.delete(args.itemId);
     return true;
   },
