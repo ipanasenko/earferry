@@ -36,6 +36,9 @@ export default defineSchema({
     phase: v.optional(v.string()),
     error: v.optional(v.string()),
     extractionStartedAt: v.optional(v.number()),
+    // Minted per extraction attempt and echoed back by the extractor Worker,
+    // so callbacks from a superseded attempt are fenced out.
+    attemptToken: v.optional(v.string()),
     lastHeartbeatAt: v.optional(v.number()),
     r2Key: v.optional(v.string()),
     sizeBytes: v.optional(v.number()),
