@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import {
   describeFailure,
+  isExpiredReady,
   isWaitingLiveStatus,
   nextCheckDelay,
   publishedDate,
@@ -257,6 +258,30 @@ export const recover = internalAction({
     await ctx.runMutation(internal.items.restartStalledExtraction, {
       itemId: args.itemId,
       observedHeartbeatAt,
+    });
+  },
+});
+
+// A re-added ready item reuses its stored audio; this confirms the MP3 is
+// still served before the reuse is trusted. Only a definite "gone" answer
+// triggers a re-extract, so a transient network fault cannot discard audio.
+export const verifyAudio = internalAction({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
+    if (!item || item.status !== "ready" || !item.expiresAt || isExpiredReady(item)) return;
+    if (!item.mediaUrl) return;
+    let missing = false;
+    try {
+      const response = await fetch(item.mediaUrl, { method: "HEAD" });
+      missing = [404, 410].includes(response.status);
+    } catch {
+      return;
+    }
+    if (!missing) return;
+    await ctx.runMutation(internal.items.requeueMissingAudio, {
+      itemId: args.itemId,
+      observedExpiresAt: item.expiresAt,
     });
   },
 });
