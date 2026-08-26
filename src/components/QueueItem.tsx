@@ -57,7 +57,7 @@ function subtitle(item: QueueItemDoc, ui: UiStatus): string {
 }
 
 // Keep the card preview at 4:3 while cropping YouTube's native 16:9 image.
-const thumbSizeClass = "w-24 sm:w-19 aspect-[4/3]";
+const thumbSizeClass = "w-20 sm:w-19 aspect-[4/3]";
 
 function Thumbnail({ item, ui }: { item: QueueItemDoc; ui: UiStatus }) {
   const [broken, setBroken] = useState(false);
