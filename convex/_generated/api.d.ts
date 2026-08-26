@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as analytics from "../analytics.js";
 import type * as domain from "../domain.js";
 import type * as extractor from "../extractor.js";
 import type * as feed from "../feed.js";
@@ -18,6 +19,7 @@ import type * as users from "../users.js";
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  analytics: typeof analytics;
   domain: typeof domain;
   extractor: typeof extractor;
   feed: typeof feed;

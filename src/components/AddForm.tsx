@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../lib/api";
+import { track } from "../lib/analytics";
+
+// Best-effort video id for analytics; the backend does the real parsing.
+function videoIdForAnalytics(url: string): string | undefined {
+  const match = url.match(/(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([\w-]{11})/);
+  return match?.[1];
+}
 
 export function AddForm() {
   const add = useMutation(api.items.add);
@@ -16,8 +23,10 @@ export function AddForm() {
     setError(null);
     try {
       await add({ url: trimmed });
+      track("item_added", { video_id: videoIdForAnalytics(trimmed) });
       setUrl("");
     } catch {
+      track("item_add_failed", { reason: "invalid_url" });
       setError("That doesn't look like a YouTube link EarFerry can carry.");
     } finally {
       setPending(false);
