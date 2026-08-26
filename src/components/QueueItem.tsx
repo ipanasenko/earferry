@@ -219,7 +219,7 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
               ) : (
                 <motion.div
                   key="default-actions"
-                  className="absolute inset-0 flex gap-2"
+                  className="absolute inset-0 flex justify-end gap-2"
                   initial={{ opacity: 0, x: -6 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 6 }}
