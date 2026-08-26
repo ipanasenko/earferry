@@ -36,7 +36,7 @@ export function StaticPageLayout({
               <button
                 type="button"
                 onClick={() => void signOut()}
-                className="flex items-center h-9.5 px-4.5 rounded-pill [box-shadow:#10141814_0px_1px_3px] bg-background font-semibold text-text-muted text-sm/4 cursor-pointer hover:text-text transition-colors"
+                className="flex items-center h-9.5 px-4.5 rounded-pill shadow-pill bg-background font-semibold text-text-muted text-sm/4 cursor-pointer hover:text-text transition-colors"
               >
                 Log out
               </button>

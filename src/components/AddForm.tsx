@@ -28,7 +28,7 @@ export function AddForm() {
     <div className="flex flex-col items-center gap-2 self-stretch">
       <form
         onSubmit={submit}
-        className="flex items-center w-full max-w-165 min-h-15 justify-between gap-3 pr-2 pl-6 rounded-pill [box-shadow:#1B3A5B1F_0px_6px_24px] bg-background"
+        className="flex items-center w-full max-w-165 min-h-15 justify-between gap-3 pr-2 pl-6 rounded-pill shadow-float bg-background"
       >
         <input
           type="url"
@@ -46,7 +46,7 @@ export function AddForm() {
           {pending ? "Adding…" : "Add"}
         </button>
       </form>
-      {error ? <div className="text-sm/4 text-[#B03A48]">{error}</div> : null}
+      {error ? <div className="text-sm/4 text-danger">{error}</div> : null}
     </div>
   );
 }

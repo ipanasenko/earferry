@@ -34,7 +34,7 @@ export function LandingPage() {
             <SignUpButton mode="modal">
               <button
                 type="button"
-                className="flex items-center h-13 px-7 rounded-pill shrink-0 [box-shadow:#1B3A5B40_0px_8px_20px] bg-ink font-semibold text-background text-base/4.5 cursor-pointer hover:opacity-90 transition-opacity"
+                className="flex items-center h-13 px-7 rounded-pill shrink-0 shadow-cta bg-ink font-semibold text-background text-base/4.5 cursor-pointer hover:opacity-90 transition-opacity"
               >
                 Get started · $9/month
               </button>

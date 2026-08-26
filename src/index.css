@@ -11,6 +11,22 @@
   --color-surface: #f4f7f9;
   --color-background: #ffffff;
   --color-background-dark: #101418;
+  --color-wave-soft: #a9c6db;
+  --color-success: #0e7c5b;
+  --color-success-soft: #ddf3ea;
+  --color-info: #2c6e9e;
+  --color-info-soft: #e2eff8;
+  --color-warning: #8a6d1e;
+  --color-warning-soft: #fbf0cc;
+  --color-danger: #b03a48;
+  --color-danger-soft: #f9e2e5;
+
+  --shadow-*: initial;
+  --shadow-pill: 0 1px 2px rgb(27 58 91 / 0.08);
+  --shadow-card: 0 2px 12px rgb(27 58 91 / 0.08);
+  --shadow-float: 0 6px 24px rgb(27 58 91 / 0.12);
+  --shadow-cta: 0 8px 20px rgb(27 58 91 / 0.25);
+  --shadow-tooltip: 0 10px 30px -6px rgb(27 58 91 / 0.24);
 
   --font-sans: "Inter", system-ui, sans-serif;
 

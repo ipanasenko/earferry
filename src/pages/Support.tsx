@@ -29,7 +29,7 @@ export function SupportPage() {
         {FAQ.map((entry) => (
           <div
             key={entry.title}
-            className="flex flex-col py-5 px-5.5 rounded-md gap-1.5 [box-shadow:#1B3A5B14_0px_2px_12px] bg-background"
+            className="flex flex-col py-5 px-5.5 rounded-md gap-1.5 shadow-card bg-background"
           >
             <h2 className="font-semibold text-text text-lg/base">{entry.title}</h2>
             <p className="text-text-muted text-base/base">{entry.body}</p>
@@ -38,7 +38,7 @@ export function SupportPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between py-5 px-5.5 rounded-md gap-4.5 bg-ink">
           <div className="flex flex-col gap-1">
             <div className="font-semibold text-background text-lg/base">Still stuck?</div>
-            <div className="text-[#9FB6CC] text-base/base">
+            <div className="text-wave-soft text-base/base">
               A human reads every message, usually within a day.
             </div>
           </div>

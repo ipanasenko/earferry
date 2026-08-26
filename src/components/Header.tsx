@@ -7,7 +7,7 @@ import { LogoMark } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 function pillButtonClass(extra = "") {
-  return `min-h-9.5 flex items-center px-4.5 rounded-pill [box-shadow:#1B3A5B14_0px_1px_2px] bg-background font-semibold text-text-muted text-sm/4 cursor-pointer hover:text-text transition-colors ${extra}`;
+  return `min-h-9.5 flex items-center px-4.5 rounded-pill shadow-pill bg-background font-semibold text-text-muted text-sm/4 cursor-pointer hover:text-text transition-colors ${extra}`;
 }
 
 function FeedUrlButton() {
@@ -72,7 +72,7 @@ export function Header() {
           <UserButton
             appearance={{
               elements: {
-                userButtonAvatarBox: "w-9.5 h-9.5 [box-shadow:#1B3A5B14_0px_1px_2px]",
+                userButtonAvatarBox: "w-9.5 h-9.5 shadow-pill",
               },
             }}
           />

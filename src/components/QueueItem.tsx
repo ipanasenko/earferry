@@ -5,11 +5,11 @@ import { FailedThumbMark, PlayIcon, RetryIcon, TrashIcon, YoutubeIcon } from "./
 
 type UiStatus = "ready" | "extracting" | "waiting" | "failed";
 
-const STATUS_PILL: Record<UiStatus, { label: string; bg: string; text: string }> = {
-  ready: { label: "Ready", bg: "#DDF3EA", text: "#0E7C5B" },
-  extracting: { label: "Extracting", bg: "#E2EFF8", text: "#2C6E9E" },
-  waiting: { label: "Waiting", bg: "#FBF0CC", text: "#8A6D1E" },
-  failed: { label: "Failed", bg: "#F9E2E5", text: "#B03A48" },
+const STATUS_PILL: Record<UiStatus, { label: string; classes: string }> = {
+  ready: { label: "Ready", classes: "bg-success-soft text-success" },
+  extracting: { label: "Extracting", classes: "bg-info-soft text-info" },
+  waiting: { label: "Waiting", classes: "bg-warning-soft text-warning" },
+  failed: { label: "Failed", classes: "bg-danger-soft text-danger" },
 };
 
 function uiStatus(status: QueueItemDoc["status"]): UiStatus {
@@ -100,7 +100,7 @@ function IconButton({
       : variant === "accent"
         ? "bg-accent hover:opacity-85"
         : variant === "danger"
-          ? "bg-surface hover:bg-[#F9E2E5]"
+          ? "bg-surface hover:bg-danger-soft"
           : "bg-surface hover:opacity-85";
   return (
     <button
@@ -123,7 +123,7 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
   const failed = ui === "failed";
 
   return (
-    <div className="flex items-center py-4.5 px-5.5 rounded-md gap-4.5 [box-shadow:#1B3A5B14_0px_2px_12px] bg-background">
+    <div className="flex items-center py-4.5 px-5.5 rounded-md gap-4.5 shadow-card bg-background">
       <Thumbnail item={item} ui={ui} />
       <div className="grow basis-0 flex flex-col min-w-0 gap-0.5">
         <div
@@ -134,8 +134,7 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
         <div className="text-text-muted truncate text-sm/4">{subtitle(item, ui)}</div>
       </div>
       <div
-        className="min-h-7.5 font-semibold hidden sm:flex items-center shrink-0 px-3.5 rounded-pill text-xs/3.5"
-        style={{ backgroundColor: pill.bg, color: pill.text }}
+        className={`min-h-7.5 font-semibold hidden sm:flex items-center shrink-0 px-3.5 rounded-pill text-xs/3.5 ${pill.classes}`}
       >
         {pill.label}
       </div>
@@ -173,7 +172,7 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
           <YoutubeIcon />
         </IconButton>
         <IconButton title="Delete" variant="danger" onClick={() => void remove({ id: item._id })}>
-          <TrashIcon stroke="#B03A48" />
+          <TrashIcon stroke="var(--color-danger)" />
         </IconButton>
       </div>
     </div>
