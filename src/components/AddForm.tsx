@@ -18,7 +18,7 @@ export function AddForm() {
       await add({ url: trimmed });
       setUrl("");
     } catch {
-      setError("That doesn't look like a YouTube link earferry can carry.");
+      setError("That doesn't look like a YouTube link EarFerry can carry.");
     } finally {
       setPending(false);
     }

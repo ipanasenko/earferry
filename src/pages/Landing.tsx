@@ -9,7 +9,7 @@ const FEATURES = [
   },
   {
     title: "We extract the audio",
-    body: "earferry pulls clean audio from the video, ready in minutes.",
+    body: "EarFerry pulls clean audio from the video, ready in minutes.",
   },
   {
     title: "Listen in your app",
@@ -27,7 +27,7 @@ export function LandingPage() {
             YouTube for your ears, delivered to your podcast app.
           </h1>
           <p className="text-center max-w-115 text-text-muted text-base/base">
-            Save any YouTube video and earferry ferries the audio into a private podcast feed you
+            Save any YouTube video and EarFerry ferries the audio into a private podcast feed you
             can play anywhere.
           </p>
           <div className="flex flex-col items-center gap-3">
