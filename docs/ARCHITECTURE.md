@@ -17,12 +17,14 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
   Clerk's `has({ plan: "ferry" })` / `<Protect plan="ferry">`.
 - Extraction: the shared extractor container from the private repo
   (see `~/Projects/listen-later/docs/plans/shared-extractor.md`). EarFerry runs
-  its own instance in the `earferry` Cloudflare account: a thin
-  `earferry-extractor` Worker (source lives in the private listen-later repo,
-  deployed by a workflow there — private deploy secrets must not live in this
-  public repo) wraps the container and owns the R2 bucket. Convex drives the
-  Worker over HTTP; the container's multipart upload callbacks terminate in the
-  Worker, which streams into R2 and notifies Convex when done.
+  its own instance in the `earferry` Cloudflare account: a product-agnostic
+  wrapper Worker from the private `earferry-extractor` repo (which owns the
+  container source and deploys isolated instances into each product's
+  Cloudflare account) wraps the container and owns the R2 bucket. Convex
+  drives the Worker over HTTP; the container's multipart upload callbacks
+  terminate in the Worker, which streams into R2 and calls back the URL in its
+  per-deployment `CALLBACK_URL` var (for EarFerry: this Convex deployment's
+  `/internal` HTTP actions).
 
 - Storage: R2 bucket `earferry-media` in the earferry Cloudflare account
   (30-day lifecycle). Stores the extracted MP3s and the square episode
