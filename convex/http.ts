@@ -2,7 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { buildFeed, signedMediaUrl } from "./feed";
+import { buildFeed, signedArtworkUrl, signedMediaUrl } from "./feed";
 import { capture } from "./analytics";
 
 const http = httpRouter();
@@ -68,6 +68,7 @@ http.route({
       channel?: string;
       description?: string;
       publishedAt?: number;
+      artwork?: boolean;
     }>(request);
     if (!body?.itemId) return json({ error: "itemId is required" }, 400);
     const itemId = body.itemId as Id<"items">;
@@ -79,6 +80,9 @@ http.route({
     // Signed once here (crypto.subtle is available in HTTP actions) and stored
     // on the item, so queries can return it without signing.
     const mediaUrl = await signedMediaUrl(found.user.feedToken, itemId);
+    const artworkUrl = body.artwork
+      ? await signedArtworkUrl(found.user.feedToken, itemId)
+      : undefined;
     await ctx.runMutation(internal.items.markReady, {
       itemId,
       r2Key: `items/${itemId}.mp3`,
@@ -88,6 +92,7 @@ http.route({
       channel: typeof body.channel === "string" ? body.channel : undefined,
       description: typeof body.description === "string" ? body.description : undefined,
       publishedAt: Number(body.publishedAt) > 0 ? Number(body.publishedAt) : undefined,
+      artworkUrl,
       mediaUrl,
     });
     await capture("extraction_completed", found.user.clerkId, {

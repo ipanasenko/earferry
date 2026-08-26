@@ -45,8 +45,8 @@ Convex -> Worker:
 - `GET /health` -> container health (proxied).
 
 Worker -> Convex (HTTP actions on CONVEX_SITE_URL, same Bearer secret):
-- `POST /internal/extract-complete` `{ itemId, sizeBytes, durationSeconds?,
-  title?, channel?, description?, publishedAt? }`
+- `POST /internal/extract-complete` `{ itemId, sizeBytes, artwork,
+  durationSeconds?, title?, channel?, description?, publishedAt? }`
 - `POST /internal/extract-failed` `{ itemId, error, detail?, retryable }`
 - `POST /internal/extract-heartbeat` `{ itemId, phase, elapsedSeconds? }`
 
@@ -54,6 +54,8 @@ Media (public, podcast clients):
 - `GET /media/{feedToken}/{itemId}.mp3?s={sig}` on the Worker, byte-range
   support from R2. `sig = hex(HMAC-SHA256(INTERNAL_SECRET, feedToken + "/" +
   itemId))`. Convex builds these URLs in the RSS feed (env MEDIA_BASE_URL).
+- `GET /media/{feedToken}/{itemId}.jpg?s={sig}` serves generated square
+  episode artwork with the same item signature.
 
 Convex env vars: `EXTRACTOR_URL`, `INTERNAL_SECRET`, `MEDIA_BASE_URL`,
 optional `FEED_BASE_URL`.
