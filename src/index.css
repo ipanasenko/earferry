@@ -125,3 +125,18 @@ body {
     transform: translateX(0);
   }
 }
+
+/* Clerk's UserButton draws its own gray focus ring around the trigger box,
+   which reads as an oval around the round avatar (also while the menu is
+   open). Suppress it and use a round brand ring on keyboard focus only. */
+.cl-userButtonTrigger,
+.cl-userButtonTrigger:focus,
+.cl-userButtonTrigger[aria-expanded="true"] {
+  box-shadow: none !important;
+  border-radius: var(--radius-pill);
+}
+
+.cl-userButtonTrigger:focus-visible {
+  outline: 2px solid var(--color-wave) !important;
+  outline-offset: 2px;
+}
