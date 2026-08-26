@@ -151,9 +151,17 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
             <RetryIcon />
           </IconButton>
         ) : (
-          // The details (bug) button is hidden for now; the empty slot keeps
-          // the action lanes aligned across rows.
-          <div className="w-9.5 h-9.5 shrink-0" aria-hidden="true" />
+          // Not ready yet: a disabled play button keeps the action lanes
+          // aligned and signals what the slot will become.
+          <button
+            type="button"
+            disabled
+            aria-label="Not ready to play yet"
+            title="Not ready to play yet"
+            className="w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 bg-surface opacity-55 cursor-not-allowed"
+          >
+            <PlayIcon stroke="var(--color-text-muted)" />
+          </button>
         )}
         <IconButton
           title="Open on YouTube"

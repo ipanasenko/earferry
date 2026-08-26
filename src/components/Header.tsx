@@ -4,6 +4,7 @@ import { SignedIn, SignedOut, SignInButton, useClerk } from "@clerk/clerk-react"
 import { useQuery } from "convex/react";
 import { api } from "../lib/api";
 import { LogoMark } from "./icons";
+import { Tooltip } from "./Tooltip";
 
 function pillButtonClass(extra = "") {
   return `min-h-9.5 flex items-center px-4.5 rounded-pill [box-shadow:#1B3A5B14_0px_1px_2px] bg-background font-semibold text-text-muted text-sm/4 cursor-pointer hover:text-text transition-colors ${extra}`;
@@ -37,22 +38,21 @@ function FeedUrlButton() {
 function BookmarkletButton() {
   const code = `javascript:location.href='${window.location.origin}/?add='+encodeURIComponent(location.href)`;
   return (
-    <a
-      // React blocks javascript: URLs set via props; the bookmarklet needs one.
-      ref={(el) => {
-        if (el) el.setAttribute("href", code);
-      }}
-      onClick={(e) => {
-        e.preventDefault();
-        window.alert(
-          "Drag this button to your bookmarks bar, then click it on any YouTube page to add the video to your queue.",
-        );
-      }}
-      className={pillButtonClass()}
-      title="Drag to your bookmarks bar"
+    <Tooltip
+      label="Drag me to your bookmarks bar"
+      hint="Then click it on any YouTube page to ferry the video straight into your feed."
     >
-      Bookmarklet
-    </a>
+      <a
+        // React blocks javascript: URLs set via props; the bookmarklet needs one.
+        ref={(el) => {
+          if (el) el.setAttribute("href", code);
+        }}
+        onClick={(e) => e.preventDefault()}
+        className={pillButtonClass()}
+      >
+        Bookmarklet
+      </a>
+    </Tooltip>
   );
 }
 
