@@ -276,3 +276,23 @@ export const cancel = internalAction({
     }
   },
 });
+
+export const deleteItem = internalAction({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
+    if (!item || item.status !== "deleting") return;
+    const config = extractorConfig();
+    if (!config) {
+      await ctx.scheduler.runAfter(5 * 60_000, internal.extractor.deleteItem, args);
+      return;
+    }
+    try {
+      await cancelJob(config.baseUrl, config.secret, args.itemId);
+    } catch {
+      await ctx.scheduler.runAfter(5 * 60_000, internal.extractor.deleteItem, args);
+      return;
+    }
+    await ctx.runMutation(internal.items.finishDelete, { itemId: args.itemId });
+  },
+});

@@ -8,7 +8,8 @@ export type ItemStatus =
   | "extracting"
   | "uploading"
   | "ready"
-  | "failed";
+  | "failed"
+  | "deleting";
 
 export interface QueueItemDoc {
   _id: string;
