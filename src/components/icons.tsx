@@ -7,7 +7,6 @@ import {
   PauseIcon as HugePause,
   YoutubeIcon as HugeYoutube,
   Delete02Icon as HugeDelete,
-  Bug01Icon as HugeBug,
   Cancel01Icon as HugeCancel,
   ReloadIcon as HugeReload,
   Tick01Icon as HugeTick,
@@ -253,10 +252,6 @@ export function YoutubeIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
 
 export function TrashIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
   return <UiIcon icon={HugeDelete} stroke={stroke} />;
-}
-
-export function BugIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
-  return <UiIcon icon={HugeBug} stroke={stroke} />;
 }
 
 export function RetryIcon({ stroke = "var(--color-ink)" }: IconProps) {
