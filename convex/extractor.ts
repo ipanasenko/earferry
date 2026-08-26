@@ -2,7 +2,13 @@ import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { isWaitingLiveStatus, publishedDate, recoveryDelay } from "./domain";
+import {
+  isWaitingLiveStatus,
+  nextCheckDelay,
+  publishedDate,
+  recoveryDelay,
+  waitingDescription,
+} from "./domain";
 
 // HTTP contract of the earferry-extractor Worker (see docs/ARCHITECTURE.md,
 // "Extractor Worker contract"). All endpoints take
@@ -168,9 +174,9 @@ export const run = internalAction({
         await ctx.runMutation(internal.items.setStatus, {
           itemId: args.itemId,
           status: "waiting",
-          phase: "Waiting until YouTube reports that the video is fully available",
+          phase: waitingDescription(metadata),
         });
-        await ctx.scheduler.runAfter(5 * 60_000, internal.extractor.recheck, {
+        await ctx.scheduler.runAfter(nextCheckDelay(metadata), internal.extractor.recheck, {
           itemId: args.itemId,
         });
         return;

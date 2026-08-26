@@ -1,0 +1,20 @@
+import { describe, expect, test } from "bun:test";
+import { nextCheckDelay, waitingDescription } from "../convex/domain";
+
+describe("premiere and live scheduling", () => {
+  test("caps distant premiere checks at thirty minutes", () => {
+    const now = Date.parse("2026-01-01T00:00:00Z");
+    expect(nextCheckDelay({ release_timestamp: now / 1_000 + 86_400 }, now)).toBe(30 * 60_000);
+  });
+
+  test("checks shortly after a nearby scheduled release", () => {
+    const now = Date.parse("2026-01-01T00:00:00Z");
+    expect(nextCheckDelay({ release_timestamp: now / 1_000 + 120 }, now)).toBe(7 * 60_000);
+  });
+
+  test("describes distinct live states", () => {
+    expect(waitingDescription({ live_status: "is_live" })).toContain("Live now");
+    expect(waitingDescription({ live_status: "post_live" })).toContain("finish processing");
+    expect(waitingDescription({ live_status: "is_upcoming" })).toContain("Upcoming");
+  });
+});
