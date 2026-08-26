@@ -3,7 +3,7 @@ import { StaticPageLayout, StaticSection } from "./StaticPage";
 const SECTIONS = [
   {
     title: "Your queue is yours",
-    body: "earferry keeps a private queue tied to a secret feed URL. There are no accounts, no profiles, and no social layer. Anyone you share the feed URL with can listen — so treat it like a password.",
+    body: "earferry keeps a private queue tied to a secret feed URL. There are no accounts, no profiles, and no social layer. Anyone you share the feed URL with can listen, so treat it like a password.",
   },
   {
     title: "What we store",

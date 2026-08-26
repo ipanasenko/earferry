@@ -126,7 +126,7 @@ export async function buildFeed(
       const description = [
         item.description ||
           (item.channel
-            ? `${item.title ?? "YouTube audio"} — ${item.channel}`
+            ? `${item.title ?? "YouTube audio"} · ${item.channel}`
             : (item.title ?? "YouTube audio")),
         `Original video: ${item.url}`,
       ].join("\n\n");

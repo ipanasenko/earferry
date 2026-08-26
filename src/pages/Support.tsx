@@ -3,11 +3,11 @@ import { StaticPageLayout } from "./StaticPage";
 const FAQ = [
   {
     title: "An episode failed to extract",
-    body: "Press the retry button on the item. If it keeps failing, open the details (bug icon) and include that output when you write to us — it tells us exactly where it sank.",
+    body: "Press the retry button on the item. If it keeps failing, open the details (bug icon) and include the status text from the item when you write to us. It tells us exactly where it sank.",
   },
   {
     title: "My podcast app doesn't see new episodes",
-    body: "Podcast apps poll feeds on their own schedule — give it a few minutes or refresh the feed manually. Also check the item shows Ready in your queue first.",
+    body: "Podcast apps poll feeds on their own schedule, so give it a few minutes or refresh the feed manually. Also check the item shows Ready in your queue first.",
   },
   {
     title: "I leaked my feed URL",

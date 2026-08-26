@@ -248,7 +248,7 @@ export const retryOrFail = internalMutation({
     await ctx.db.patch(args.itemId, {
       status: "failed",
       phase: undefined,
-      error: `${failure.message} — ${args.detail}`.slice(0, 500),
+      error: `${failure.message}: ${args.detail}`.slice(0, 500),
     });
   },
 });
@@ -275,7 +275,7 @@ export const markFailed = internalMutation({
     await ctx.db.patch(args.itemId, {
       status: "failed",
       phase: undefined,
-      error: `${failure.message} — ${args.detail}`.slice(0, 500),
+      error: `${failure.message}: ${args.detail}`.slice(0, 500),
     });
   },
 });

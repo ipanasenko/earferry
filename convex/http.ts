@@ -18,7 +18,7 @@ function internalAuthorized(request: Request): boolean {
   return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
-// GET /feed/{feedToken} — RSS 2.0 podcast feed of the user's ready items.
+// GET /feed/{feedToken}: RSS 2.0 podcast feed of the user's ready items.
 // Media enclosures point at the earferry-extractor Worker (MEDIA_BASE_URL).
 http.route({
   pathPrefix: "/feed/",
