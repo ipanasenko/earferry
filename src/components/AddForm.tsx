@@ -37,7 +37,7 @@ export function AddForm() {
     <div className="flex flex-col items-center gap-2 self-stretch">
       <form
         onSubmit={submit}
-        className="flex items-center w-full max-w-165 min-h-15 justify-between gap-3 pr-2 pl-6 rounded-pill shadow-float bg-background"
+        className="flex items-center w-full max-w-165 min-h-14 sm:min-h-15 justify-between gap-2 sm:gap-3 pr-1.75 sm:pr-2 pl-4.5 sm:pl-6 rounded-pill shadow-float bg-background"
       >
         <input
           type="url"
@@ -50,7 +50,7 @@ export function AddForm() {
         <button
           type="submit"
           disabled={pending}
-          className="flex items-center justify-center min-h-11.5 px-6.5 rounded-pill bg-ink font-semibold text-background text-base/4.5 cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-60 shrink-0"
+          className="flex items-center justify-center min-h-10.5 px-5.5 sm:min-h-11.5 sm:px-6.5 rounded-pill bg-ink font-semibold text-background text-base/4.5 cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-60 shrink-0"
         >
           {pending ? "Adding…" : "Add"}
         </button>

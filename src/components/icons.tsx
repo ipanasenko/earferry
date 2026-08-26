@@ -9,6 +9,7 @@ import {
   Delete02Icon as HugeDelete,
   Cancel01Icon as HugeCancel,
   ReloadIcon as HugeReload,
+  RssIcon as HugeRss,
   Tick01Icon as HugeTick,
 } from "@hugeicons/core-free-icons";
 
@@ -264,6 +265,10 @@ export function ConfirmIcon({ stroke = "var(--color-background)" }: IconProps) {
 
 export function CancelIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
   return <UiIcon icon={HugeCancel} stroke={stroke} />;
+}
+
+export function FeedIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
+  return <UiIcon icon={HugeRss} stroke={stroke} />;
 }
 
 /**
