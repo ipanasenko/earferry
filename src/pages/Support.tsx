@@ -3,7 +3,7 @@ import { StaticPageLayout } from "./StaticPage";
 const FAQ = [
   {
     title: "An episode failed to extract",
-    body: "Press the retry button on the item. If it keeps failing, open the details (bug icon) and include the status text from the item when you write to us. It tells us exactly where it sank.",
+    body: "Press the retry button on the item. If it keeps failing, include the video link and the status shown in your queue when you write to us.",
   },
   {
     title: "My podcast app doesn't see new episodes",

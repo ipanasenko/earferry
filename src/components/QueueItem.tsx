@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { useAction, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import { api, type QueueItemDoc } from "../lib/api";
 import { track } from "../lib/analytics";
 import {
   CancelIcon,
-  BugIcon,
   ConfirmIcon,
   FailedThumbMark,
   PlayIcon,
@@ -134,30 +133,11 @@ function IconButton({
 export function QueueItem({ item }: { item: QueueItemDoc }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [details, setDetails] = useState<string | null>(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
   const remove = useMutation(api.items.remove);
   const retry = useMutation(api.items.retry);
-  const loadDiagnostics = useAction(api.extractor.diagnostics);
   const ui = uiStatus(item.status);
   const pill = STATUS_PILL[ui];
   const failed = ui === "failed";
-
-  async function toggleDetails() {
-    if (details !== null) {
-      setDetails(null);
-      return;
-    }
-    setLoadingDetails(true);
-    try {
-      const result = await loadDiagnostics({ id: item._id });
-      setDetails(JSON.stringify(result, null, 2));
-    } catch (error) {
-      setDetails(String((error as Error)?.message ?? error));
-    } finally {
-      setLoadingDetails(false);
-    }
-  }
 
   function retryItem() {
     track("item_retried");
@@ -181,7 +161,7 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
         >
           {pill.label}
         </div>
-        <div className="relative w-52.5 h-9.5 flex shrink-0 justify-end">
+        <div className="relative w-44 h-9.5 flex shrink-0 justify-end">
           <AnimatePresence initial={false} mode="popLayout">
             {confirmingDelete ? (
               <motion.div
@@ -241,13 +221,6 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
                   </IconButton>
                 ) : null}
                 <IconButton
-                  title={details === null ? "Extraction details" : "Hide extraction details"}
-                  disabled={loadingDetails}
-                  onClick={() => void toggleDetails()}
-                >
-                  <BugIcon />
-                </IconButton>
-                <IconButton
                   title="Open on YouTube"
                   onClick={() => window.open(item.url, "_blank", "noopener")}
                 >
@@ -265,11 +238,6 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
           </AnimatePresence>
         </div>
       </div>
-      {details !== null ? (
-        <pre className="mx-5.5 mb-4.5 overflow-x-auto rounded-sm bg-surface p-4 text-xs/4 text-text-muted whitespace-pre-wrap">
-          {details}
-        </pre>
-      ) : null}
     </div>
   );
 }
