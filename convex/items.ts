@@ -37,9 +37,89 @@ async function ownedItem(ctx: MutationCtx, id: Id<"items">): Promise<Doc<"items"
   return item;
 }
 
-function scheduleExtraction(ctx: MutationCtx, itemId: Id<"items">) {
-  return ctx.scheduler.runAfter(0, internal.extractor.run, { itemId });
+// Puts an item at the back of the extraction queue and wakes the dispatcher:
+// once now (the slot may already be free for another item) and once when this
+// item becomes due.
+async function enqueueItem(
+  ctx: MutationCtx,
+  itemId: Id<"items">,
+  patch: Partial<Doc<"items">>,
+  delayMs = 0,
+): Promise<void> {
+  await ctx.db.patch(itemId, {
+    ...patch,
+    status: "queued",
+    nextAttemptAt: Date.now() + delayMs,
+    attemptToken: undefined,
+    extractionStartedAt: undefined,
+    lastHeartbeatAt: undefined,
+  });
+  await ctx.scheduler.runAfter(0, internal.items.dispatchNext, {});
+  if (delayMs > 0) await ctx.scheduler.runAfter(delayMs, internal.items.dispatchNext, {});
 }
+
+function wakeDispatcher(ctx: MutationCtx) {
+  return ctx.scheduler.runAfter(0, internal.items.dispatchNext, {});
+}
+
+// The extractor runs one video at a time, so pickup order is decided here:
+// the oldest due queued item goes first, across all users. The claim happens
+// inside this transaction, so two overlapping dispatchers cannot start two
+// runs. Kicked whenever an item enters the queue or an attempt ends, with a
+// cron sweep as the backstop for lost kicks.
+export const dispatchNext = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    for (const status of ["probing", "extracting", "uploading"] as const) {
+      const busy = await ctx.db
+        .query("items")
+        .withIndex("by_status_next", (q) => q.eq("status", status))
+        .first();
+      if (busy) return; // The attempt's terminal transition re-kicks us.
+    }
+    const now = Date.now();
+    const due = await ctx.db
+      .query("items")
+      .withIndex("by_status_next", (q) => q.eq("status", "queued").lte("nextAttemptAt", now))
+      .order("asc")
+      .first();
+    if (!due) {
+      const upcoming = await ctx.db
+        .query("items")
+        .withIndex("by_status_next", (q) => q.eq("status", "queued"))
+        .order("asc")
+        .first();
+      if (upcoming?.nextAttemptAt) {
+        await ctx.scheduler.runAt(upcoming.nextAttemptAt, internal.items.dispatchNext, {});
+      }
+      return;
+    }
+    await ctx.db.patch(due._id, {
+      status: "probing",
+      phase: "Checking video",
+      extractionStartedAt: now,
+    });
+    await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.items.recoverProbe, {
+      itemId: due._id,
+      startedAt: now,
+    });
+    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: due._id });
+  },
+});
+
+// Requeue an in-flight or waiting item, used by the extractor action.
+export const requeue = internalMutation({
+  args: {
+    itemId: v.id("items"),
+    phase: v.optional(v.string()),
+    delayMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || ["ready", "deleting"].includes(item.status)) return;
+    await enqueueItem(ctx, args.itemId, { phase: args.phase }, args.delayMs ?? 0);
+  },
+});
 
 export const list = query({
   args: {},
@@ -76,20 +156,17 @@ export const add = mutation({
       }
       if (existing.status === "failed" || isExpiredReady(existing, now)) {
         // A re-added failed item gets a fresh attempt, not just a new spot.
-        await ctx.db.patch(existing._id, {
+        await enqueueItem(ctx, existing._id, {
           position,
           addedAt: now,
-          status: "queued",
           phase: undefined,
           error: undefined,
           attempts: 0,
-          attemptToken: undefined,
           r2Key: undefined,
           sizeBytes: undefined,
           mediaUrl: undefined,
           expiresAt: undefined,
         });
-        await scheduleExtraction(ctx, existing._id);
       } else {
         await ctx.db.patch(existing._id, { position, addedAt: now });
       }
@@ -103,8 +180,9 @@ export const add = mutation({
       addedAt: now,
       position: await topPosition(ctx, user._id),
       status: "queued",
+      nextAttemptAt: now,
     });
-    await scheduleExtraction(ctx, itemId);
+    await wakeDispatcher(ctx);
     return itemId;
   },
 });
@@ -135,14 +213,7 @@ export const retry = mutation({
       await ctx.scheduler.runAfter(0, internal.extractor.restart, { itemId: item._id });
       return;
     }
-    await ctx.db.patch(item._id, {
-      status: "queued",
-      phase: undefined,
-      error: undefined,
-      attempts: 0,
-      attemptToken: undefined,
-    });
-    await scheduleExtraction(ctx, item._id);
+    await enqueueItem(ctx, item._id, { phase: undefined, error: undefined, attempts: 0 });
   },
 });
 
@@ -151,16 +222,11 @@ export const queueAfterCancel = internalMutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || !["extracting", "uploading"].includes(item.status)) return false;
-    await ctx.db.patch(args.itemId, {
-      status: "queued",
+    await enqueueItem(ctx, args.itemId, {
       phase: "Starting a fresh extraction",
       error: undefined,
       attempts: 0,
-      attemptToken: undefined,
-      extractionStartedAt: undefined,
-      lastHeartbeatAt: undefined,
     });
-    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: args.itemId });
     return true;
   },
 });
@@ -229,25 +295,6 @@ export const setStatus = internalMutation({
   },
 });
 
-export const beginProbe = internalMutation({
-  args: { itemId: v.id("items") },
-  handler: async (ctx, args) => {
-    const item = await ctx.db.get(args.itemId);
-    if (!item || !["queued", "probing"].includes(item.status)) return false;
-    const now = Date.now();
-    await ctx.db.patch(args.itemId, {
-      status: "probing",
-      phase: "Checking video",
-      extractionStartedAt: now,
-    });
-    await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.items.recoverProbe, {
-      itemId: args.itemId,
-      startedAt: now,
-    });
-    return true;
-  },
-});
-
 // A probe whose action died (deploy, crash, killed runtime) leaves the item in
 // "probing" with nobody coming back for it. This fires one lease later;
 // startedAt ties it to a specific attempt so a newer probe is left alone.
@@ -312,14 +359,7 @@ export const restartStalledExtraction = internalMutation({
     ) {
       return false;
     }
-    await ctx.db.patch(args.itemId, {
-      status: "queued",
-      phase: "Extraction stopped responding. Trying again",
-      attemptToken: undefined,
-      extractionStartedAt: undefined,
-      lastHeartbeatAt: undefined,
-    });
-    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: args.itemId });
+    await enqueueItem(ctx, args.itemId, { phase: "Extraction stopped responding. Trying again" });
     return true;
   },
 });
@@ -383,6 +423,8 @@ export const markReady = internalMutation({
       expiresAt,
     });
     await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });
+    // The extractor slot is free: hand it to the next queued item.
+    await wakeDispatcher(ctx);
     return true;
   },
 });
@@ -403,6 +445,8 @@ export const finishDelete = internalMutation({
     const item = await ctx.db.get(args.itemId);
     if (!item || item.status !== "deleting") return false;
     await ctx.db.delete(args.itemId);
+    // The deleted item may have held the extractor slot.
+    await wakeDispatcher(ctx);
     return true;
   },
 });
@@ -416,17 +460,16 @@ async function retryOrFailItem(
 ) {
   const attempts = item.attempts ?? 0;
   if (retryable && attempts < MAX_AUTO_RETRIES) {
-    const delay = retryDelayMs(attempts);
-    await ctx.db.patch(item._id, {
-      status: "queued",
-      attempts: attempts + 1,
-      phase: `Extraction failed, retrying (attempt ${attempts + 2})`,
-      error: undefined,
-      attemptToken: undefined,
-      extractionStartedAt: undefined,
-      lastHeartbeatAt: undefined,
-    });
-    await ctx.scheduler.runAfter(delay, internal.extractor.run, { itemId: item._id });
+    await enqueueItem(
+      ctx,
+      item._id,
+      {
+        attempts: attempts + 1,
+        phase: `Extraction failed, retrying (attempt ${attempts + 2})`,
+        error: undefined,
+      },
+      retryDelayMs(attempts),
+    );
     return;
   }
   const failure = describeFailure(detail);
@@ -438,6 +481,7 @@ async function retryOrFailItem(
     extractionStartedAt: undefined,
     lastHeartbeatAt: undefined,
   });
+  await wakeDispatcher(ctx);
 }
 
 export const retryOrFail = internalMutation({
@@ -496,5 +540,6 @@ export const markFailed = internalMutation({
       extractionStartedAt: undefined,
       lastHeartbeatAt: undefined,
     });
+    await wakeDispatcher(ctx);
   },
 });
