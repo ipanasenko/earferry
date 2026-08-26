@@ -56,14 +56,14 @@ function subtitle(item: QueueItemDoc, ui: UiStatus): string {
   return `${channel} · ${item.phase ?? (ui === "waiting" ? "waiting to go live" : "getting ready…")}`;
 }
 
-// Wider thumbnail on mobile where it anchors the stacked card layout.
-const thumbSizeClass = "w-24 sm:w-19 h-14.25";
+// YouTube's standard high-quality preview is 4:3 (480x360).
+const thumbSizeClass = "w-24 sm:w-19 aspect-[4/3]";
 
 function Thumbnail({ item, ui }: { item: QueueItemDoc; ui: UiStatus }) {
   const [broken, setBroken] = useState(false);
-  const src =
-    item.artworkUrl ??
-    (item.videoId ? `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg` : null);
+  // Generated square artwork belongs in the podcast feed and MP3 metadata.
+  // Keep the web queue tied to the original YouTube preview instead.
+  const src = item.videoId ? `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg` : null;
 
   if (ui === "failed" && (broken || !src)) {
     return (
@@ -85,19 +85,12 @@ function Thumbnail({ item, ui }: { item: QueueItemDoc; ui: UiStatus }) {
     <div
       className={`relative ${thumbSizeClass} shrink-0 rounded-sm overflow-clip border border-solid border-border bg-surface`}
     >
-      {/* Blurred cover backdrop behind a contained image, per the design's blurred-cover treatment. */}
-      <img
-        src={src}
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover blur-[6px] scale-125"
-      />
       <img
         src={src}
         alt=""
         loading="lazy"
         onError={() => setBroken(true)}
-        className="relative w-full h-full object-contain"
+        className="w-full h-full object-cover"
       />
     </div>
   );
