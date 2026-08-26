@@ -8,6 +8,12 @@ const YOUTUBE_HOSTS = new Set([
   "youtu.be",
 ]);
 
+export const EXTRACTION_LEASE_MS = 5 * 60 * 1_000;
+
+export function recoveryDelay(lastHeartbeatAt: number, now = Date.now()): number {
+  return Math.max(0, lastHeartbeatAt + EXTRACTION_LEASE_MS - now);
+}
+
 export function normalizeYouTubeUrl(value: unknown): string {
   if (typeof value !== "string" || value.length > 2_048) {
     throw new Error("Enter a valid YouTube URL.");

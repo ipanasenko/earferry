@@ -34,6 +34,8 @@ export default defineSchema({
     status: itemStatus,
     phase: v.optional(v.string()),
     error: v.optional(v.string()),
+    extractionStartedAt: v.optional(v.number()),
+    lastHeartbeatAt: v.optional(v.number()),
     r2Key: v.optional(v.string()),
     sizeBytes: v.optional(v.number()),
     // Signed Worker media URL, stored when the item becomes ready.
