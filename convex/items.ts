@@ -11,7 +11,9 @@ import { internal } from "./_generated/api";
 import {
   EXTRACTION_LEASE_MS,
   isExpiredReady,
+  MAX_AUTO_RETRIES,
   normalizeYouTubeUrl,
+  retryDelayMs,
   youtubeVideoId,
   describeFailure,
 } from "./domain";
@@ -391,9 +393,6 @@ export const finishDelete = internalMutation({
 });
 
 // Bounded automatic retry for retryable extractor failures.
-const MAX_AUTO_RETRIES = 3;
-const RETRY_BASE_DELAY_MS = 60_000;
-
 async function retryOrFailItem(
   ctx: MutationCtx,
   item: Doc<"items">,
@@ -402,7 +401,7 @@ async function retryOrFailItem(
 ) {
   const attempts = item.attempts ?? 0;
   if (retryable && attempts < MAX_AUTO_RETRIES) {
-    const delay = RETRY_BASE_DELAY_MS * 2 ** attempts; // 1m, 2m, 4m
+    const delay = retryDelayMs(attempts);
     await ctx.db.patch(item._id, {
       status: "queued",
       attempts: attempts + 1,
