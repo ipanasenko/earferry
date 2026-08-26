@@ -120,8 +120,13 @@ export const retry = mutation({
   handler: async (ctx, args) => {
     await requirePaidEntitlement(ctx);
     const item = await ownedItem(ctx, args.id);
-    if (!["failed", "waiting", "ready"].includes(item.status)) {
+    if (!["failed", "waiting", "ready", "extracting", "uploading"].includes(item.status)) {
       throw new Error("This item cannot be retried yet");
+    }
+    if (["extracting", "uploading"].includes(item.status)) {
+      await ctx.db.patch(item._id, { phase: "Cancelling the current extraction" });
+      await ctx.scheduler.runAfter(0, internal.extractor.restart, { itemId: item._id });
+      return;
     }
     await ctx.db.patch(item._id, {
       status: "queued",
@@ -130,6 +135,24 @@ export const retry = mutation({
       attempts: 0,
     });
     await scheduleExtraction(ctx, item._id);
+  },
+});
+
+export const queueAfterCancel = internalMutation({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || !["extracting", "uploading"].includes(item.status)) return false;
+    await ctx.db.patch(args.itemId, {
+      status: "queued",
+      phase: "Starting a fresh extraction",
+      error: undefined,
+      attempts: 0,
+      extractionStartedAt: undefined,
+      lastHeartbeatAt: undefined,
+    });
+    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: args.itemId });
+    return true;
   },
 });
 
@@ -376,6 +399,16 @@ export const itemWithUser = internalQuery({
     const user = await ctx.db.get(item.userId);
     if (!user) return null;
     return { item, user };
+  },
+});
+
+export const ownedItemForDiagnostics = internalQuery({
+  args: { itemId: v.id("items"), clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item) return null;
+    const user = await ctx.db.get(item.userId);
+    return user?.clerkId === args.clerkId ? item : null;
   },
 });
 

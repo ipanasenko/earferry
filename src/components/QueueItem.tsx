@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import { api, type QueueItemDoc } from "../lib/api";
 import { track } from "../lib/analytics";
 import {
   CancelIcon,
+  BugIcon,
   ConfirmIcon,
   FailedThumbMark,
   PlayIcon,
@@ -133,111 +134,142 @@ function IconButton({
 export function QueueItem({ item }: { item: QueueItemDoc }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [details, setDetails] = useState<string | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const remove = useMutation(api.items.remove);
   const retry = useMutation(api.items.retry);
+  const loadDiagnostics = useAction(api.extractor.diagnostics);
   const ui = uiStatus(item.status);
   const pill = STATUS_PILL[ui];
   const failed = ui === "failed";
 
+  async function toggleDetails() {
+    if (details !== null) {
+      setDetails(null);
+      return;
+    }
+    setLoadingDetails(true);
+    try {
+      const result = await loadDiagnostics({ id: item._id });
+      setDetails(JSON.stringify(result, null, 2));
+    } catch (error) {
+      setDetails(String((error as Error)?.message ?? error));
+    } finally {
+      setLoadingDetails(false);
+    }
+  }
+
+  function retryItem() {
+    track("item_retried");
+    void retry({ id: item._id });
+  }
+
   return (
-    <div className="flex items-center py-4.5 px-5.5 rounded-md gap-4.5 shadow-card bg-background">
-      <Thumbnail item={item} ui={ui} />
-      <div className="grow basis-0 flex flex-col min-w-0 gap-0.5">
-        <div
-          className={`font-semibold truncate text-lg/base ${failed ? "text-text-muted" : "text-text"}`}
-        >
-          {item.title ?? item.url}
+    <div className="flex flex-col rounded-md shadow-card bg-background">
+      <div className="flex items-center py-4.5 px-5.5 gap-4.5">
+        <Thumbnail item={item} ui={ui} />
+        <div className="grow basis-0 flex flex-col min-w-0 gap-0.5">
+          <div
+            className={`font-semibold truncate text-lg/base ${failed ? "text-text-muted" : "text-text"}`}
+          >
+            {item.title ?? item.url}
+          </div>
+          <div className="text-text-muted truncate text-sm/4">{subtitle(item, ui)}</div>
         </div>
-        <div className="text-text-muted truncate text-sm/4">{subtitle(item, ui)}</div>
-      </div>
-      <div
-        className={`min-h-7.5 font-semibold hidden sm:flex items-center shrink-0 px-3.5 rounded-pill text-xs/3.5 ${pill.classes}`}
-      >
-        {pill.label}
-      </div>
-      <div className="relative w-32.5 h-9.5 flex shrink-0 justify-end">
-        <AnimatePresence initial={false} mode="popLayout">
-          {confirmingDelete ? (
-            <motion.div
-              key="confirm-delete"
-              className="absolute inset-0 flex justify-end gap-2"
-              initial={{ opacity: 0, x: 6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 6 }}
-              transition={{ duration: 0.16, ease: "easeOut" }}
-            >
-              <IconButton
-                title="Confirm delete"
-                variant="danger-solid"
-                disabled={deleting}
-                onClick={() => {
-                  setDeleting(true);
-                  track("item_removed");
-                  void remove({ id: item._id }).catch(() => setDeleting(false));
-                }}
+        <div
+          className={`min-h-7.5 font-semibold hidden sm:flex items-center shrink-0 px-3.5 rounded-pill text-xs/3.5 ${pill.classes}`}
+        >
+          {pill.label}
+        </div>
+        <div className="relative w-52.5 h-9.5 flex shrink-0 justify-end">
+          <AnimatePresence initial={false} mode="popLayout">
+            {confirmingDelete ? (
+              <motion.div
+                key="confirm-delete"
+                className="absolute inset-0 flex justify-end gap-2"
+                initial={{ opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 6 }}
+                transition={{ duration: 0.16, ease: "easeOut" }}
               >
-                <ConfirmIcon />
-              </IconButton>
-              <IconButton
-                title="Cancel delete"
-                disabled={deleting}
-                onClick={() => setConfirmingDelete(false)}
-              >
-                <CancelIcon />
-              </IconButton>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="default-actions"
-              className="absolute inset-0 flex gap-2"
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 6 }}
-              transition={{ duration: 0.12, ease: "easeIn" }}
-            >
-              {ui === "ready" ? (
                 <IconButton
-                  title="Open MP3"
+                  title="Confirm delete"
+                  variant="danger-solid"
+                  disabled={deleting}
                   onClick={() => {
-                    if (item.mediaUrl) window.open(item.mediaUrl, "_blank", "noopener");
+                    setDeleting(true);
+                    track("item_removed");
+                    void remove({ id: item._id }).catch(() => setDeleting(false));
                   }}
                 >
-                  <PlayIcon stroke="var(--color-text-muted)" />
+                  <ConfirmIcon />
                 </IconButton>
-              ) : ui === "failed" ? (
                 <IconButton
-                  title="Retry extraction"
-                  onClick={() => {
-                    track("item_retried");
-                    void retry({ id: item._id });
-                  }}
+                  title="Cancel delete"
+                  disabled={deleting}
+                  onClick={() => setConfirmingDelete(false)}
                 >
-                  <RetryIcon stroke="var(--color-text-muted)" />
+                  <CancelIcon />
                 </IconButton>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  aria-label="Not ready to play yet"
-                  title="Not ready to play yet"
-                  className="w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 bg-surface opacity-55 cursor-not-allowed"
-                >
-                  <PlayIcon stroke="var(--color-text-muted)" />
-                </button>
-              )}
-              <IconButton
-                title="Open on YouTube"
-                onClick={() => window.open(item.url, "_blank", "noopener")}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="default-actions"
+                className="absolute inset-0 flex gap-2"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 6 }}
+                transition={{ duration: 0.12, ease: "easeIn" }}
               >
-                <YoutubeIcon />
-              </IconButton>
-              <IconButton title="Delete" variant="danger" onClick={() => setConfirmingDelete(true)}>
-                <TrashIcon stroke="var(--color-danger)" />
-              </IconButton>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {ui === "ready" ? (
+                  <IconButton
+                    title="Open MP3"
+                    onClick={() => {
+                      if (item.mediaUrl) window.open(item.mediaUrl, "_blank", "noopener");
+                    }}
+                  >
+                    <PlayIcon stroke="var(--color-text-muted)" />
+                  </IconButton>
+                ) : (
+                  <IconButton title="Retry extraction" onClick={retryItem}>
+                    <RetryIcon stroke="var(--color-text-muted)" />
+                  </IconButton>
+                )}
+                {ui === "ready" ? (
+                  <IconButton title="Re-extract audio" onClick={retryItem}>
+                    <RetryIcon stroke="var(--color-text-muted)" />
+                  </IconButton>
+                ) : null}
+                <IconButton
+                  title={details === null ? "Extraction details" : "Hide extraction details"}
+                  disabled={loadingDetails}
+                  onClick={() => void toggleDetails()}
+                >
+                  <BugIcon />
+                </IconButton>
+                <IconButton
+                  title="Open on YouTube"
+                  onClick={() => window.open(item.url, "_blank", "noopener")}
+                >
+                  <YoutubeIcon />
+                </IconButton>
+                <IconButton
+                  title="Delete"
+                  variant="danger"
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  <TrashIcon stroke="var(--color-danger)" />
+                </IconButton>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
+      {details !== null ? (
+        <pre className="mx-5.5 mb-4.5 overflow-x-auto rounded-sm bg-surface p-4 text-xs/4 text-text-muted whitespace-pre-wrap">
+          {details}
+        </pre>
+      ) : null}
     </div>
   );
 }

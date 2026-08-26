@@ -43,6 +43,12 @@ type PublicMutation<Args extends DefaultFunctionArgs, Ret> = FunctionReference<
   Args,
   Ret
 >;
+type PublicAction<Args extends DefaultFunctionArgs, Ret> = FunctionReference<
+  "action",
+  "public",
+  Args,
+  Ret
+>;
 
 interface EarferryApi {
   items: {
@@ -50,6 +56,9 @@ interface EarferryApi {
     add: PublicMutation<{ url: string }, string>;
     remove: PublicMutation<{ id: string }, null>;
     retry: PublicMutation<{ id: string }, null>;
+  };
+  extractor: {
+    diagnostics: PublicAction<{ id: string }, unknown>;
   };
   users: {
     me: PublicQuery<Record<string, never>, { feedUrl: string | null }>;
