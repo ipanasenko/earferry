@@ -11,7 +11,7 @@ const FAQ = [
   },
   {
     title: "I leaked my feed URL",
-    body: "Use Rotate feed in the header and confirm the change. EarFerry copies the replacement URL for you. Add it to your podcast app; the old feed stops receiving updates.",
+    body: "Write to us and we replace your feed URL. We send you the new URL to add to your podcast app; the old feed stops receiving updates.",
   },
 ];
 
