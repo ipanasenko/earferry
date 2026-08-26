@@ -30,7 +30,11 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
 
+      # --tag/--message make the version history show which commit is live.
       - name: Deploy frontend to Cloudflare
-        run: bunx wrangler deploy
+        run: >
+          bunx wrangler deploy
+          --tag "${GITHUB_SHA::9}"
+          --message "$(git log -1 --format=%s)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
