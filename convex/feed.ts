@@ -111,6 +111,8 @@ export async function buildFeed(
 ): Promise<string> {
   const base = origin.replace(/\/$/, "");
   const feedUrl = `${base}/feed/${encodeURIComponent(feedToken)}`;
+  // Channel art: the app serves the logo as a static asset.
+  const channelArtUrl = process.env.CHANNEL_ART_URL ?? null;
   const feedDescription = "YouTube videos saved for listening later.";
   // Items store their signed Worker media URL when they become ready; sign on
   // the fly for anything that predates that.
@@ -156,7 +158,17 @@ export async function buildFeed(
     <language>en</language>
     <itunes:author>EarFerry</itunes:author>
     <itunes:summary>${xml(feedDescription)}</itunes:summary>
-    <itunes:explicit>false</itunes:explicit>
+    <itunes:explicit>false</itunes:explicit>${
+      channelArtUrl
+        ? `
+    <itunes:image href="${xml(channelArtUrl)}" />
+    <image>
+      <url>${xml(channelArtUrl)}</url>
+      <title>EarFerry</title>
+      <link>${xml(base)}</link>
+    </image>`
+        : ""
+    }
     <atom:link href="${xml(feedUrl)}" rel="self" type="application/rss+xml" />${entries}
   </channel>
 </rss>`;
