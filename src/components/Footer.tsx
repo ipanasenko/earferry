@@ -11,7 +11,7 @@ const LINKS = [
 
 export function Footer() {
   return (
-    <footer className="mt-auto flex items-center justify-center pt-12 gap-6">
+    <footer className="mt-auto flex items-center justify-center pt-12 pb-20 gap-6">
       <FooterMark />
       {LINKS.map((link) => (
         <Link key={link.to} to={link.to} className={linkClass}>

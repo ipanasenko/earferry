@@ -24,7 +24,7 @@ export function QueuePage() {
 
   return (
     <div className="page-gradient min-h-screen">
-      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-6 md:px-25 pb-20">
+      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-6 md:px-25">
         <Header />
         <section className="flex flex-col items-center pt-6 pb-10 gap-4.5">
           <h1 className="font-regular tracking-tight text-center text-text text-xl/8.5">
