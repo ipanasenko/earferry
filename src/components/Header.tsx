@@ -102,7 +102,7 @@ export function Header() {
       <SignedIn>
         <div className="flex flex-wrap justify-end gap-2.5">
           <FeedUrlButton />
-          <span className="hidden sm:block">
+          <span>
             <RotateFeedButton />
           </span>
           <span className="hidden sm:block">
