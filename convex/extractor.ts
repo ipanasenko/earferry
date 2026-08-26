@@ -1,18 +1,17 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { isWaitingLiveStatus, publishedDate } from "./domain";
-import { feedBaseUrl } from "./users";
 
-// HTTP contract of the shared extractor container (see the private repo,
-// docs/plans/shared-extractor.md and container/server.js):
-//   POST /probe            { url } -> yt-dlp metadata JSON
-//   POST /extract          { id, url, callbackBase, token } -> 202 { accepted, id }
-//   DELETE /jobs/:id       -> { cancelled, id } | 404
-//   GET /health            -> { ok, busy, job, tokenProvider }
-// The container then drives the multipart callback sequence against
-// {callbackBase} with `authorization: Bearer {token}` (see convex/http.ts).
+// HTTP contract of the earferry-extractor Worker (see docs/ARCHITECTURE.md,
+// "Extractor Worker contract"). All endpoints take
+// `authorization: Bearer {INTERNAL_SECRET}`:
+//   POST /probe            { url } -> yt-dlp metadata JSON (proxied)
+//   POST /extract          { itemId, url } -> 202; the Worker drives the
+//                          container, streams into R2 at items/{itemId}.mp3,
+//                          then calls back our /internal/* HTTP actions
+//   DELETE /jobs/{itemId}  -> cancel + delete R2 objects
+//   GET /health            -> container health (proxied)
 
 export type ProbeMetadata = {
   title?: string;
@@ -40,7 +39,7 @@ function extractorConfig(): { baseUrl: string; secret: string } | null {
   return { baseUrl, secret: process.env.INTERNAL_SECRET ?? "" };
 }
 
-// The extractor answers errors as JSON { error }, so unwrap before the text
+// The Worker answers errors as JSON { error }, so unwrap before the text
 // lands in an item's error field.
 async function extractorError(response: Response, fallback: string): Promise<string> {
   const text = (await response.text().catch(() => "")).trim();
@@ -88,7 +87,7 @@ export async function probeVideo(
 export async function startExtraction(
   baseUrl: string,
   secret: string,
-  job: { id: string; url: string; callbackBase: string; token: string },
+  job: { itemId: string; url: string },
 ): Promise<void> {
   const response = await extractorFetch(baseUrl, secret, "/extract", {
     method: "POST",
@@ -100,12 +99,12 @@ export async function startExtraction(
   }
 }
 
-export async function cancelJob(baseUrl: string, secret: string, id: string): Promise<void> {
-  const response = await extractorFetch(baseUrl, secret, `/jobs/${encodeURIComponent(id)}`, {
+export async function cancelJob(baseUrl: string, secret: string, itemId: string): Promise<void> {
+  const response = await extractorFetch(baseUrl, secret, `/jobs/${encodeURIComponent(itemId)}`, {
     method: "DELETE",
   });
   if (response.ok || response.status === 404) return;
-  throw new Error(`Container cancellation failed (${response.status})`);
+  throw new Error(`Extractor cancellation failed (${response.status})`);
 }
 
 export async function health(baseUrl: string, secret: string): Promise<ExtractorHealth> {
@@ -167,16 +166,24 @@ export const run = internalAction({
         phase: "Starting audio extraction",
       });
       await startExtraction(baseUrl, secret, {
-        id: args.itemId,
+        itemId: args.itemId,
         url: item.url,
-        callbackBase: `${feedBaseUrl()}/internal/extract-callback/${args.itemId}`,
-        token: secret,
       });
     } catch (error) {
-      await ctx.runMutation(internal.items.markFailed, {
-        itemId: args.itemId,
-        detail: String((error as Error)?.message ?? error).slice(0, 500),
-      });
+      const detail = String((error as Error)?.message ?? error).slice(0, 500);
+      if (detail === "Another extraction is already running") {
+        // Busy extractor: keep the item queued and try again shortly.
+        await ctx.runMutation(internal.items.setStatus, {
+          itemId: args.itemId,
+          status: "queued",
+          phase: "Waiting for a free extractor",
+        });
+        await ctx.scheduler.runAfter(60_000, internal.extractor.run, {
+          itemId: args.itemId,
+        });
+        return;
+      }
+      await ctx.runMutation(internal.items.markFailed, { itemId: args.itemId, detail });
     }
   },
 });
@@ -201,9 +208,9 @@ export const cancel = internalAction({
     const config = extractorConfig();
     if (!config) return;
     try {
-      await cancelJob(config.baseUrl, config.secret, args.itemId as Id<"items"> as string);
+      await cancelJob(config.baseUrl, config.secret, args.itemId);
     } catch {
-      // The container recycles jobs on its own; a failed cancel is not fatal.
+      // The Worker recycles jobs on its own; a failed cancel is not fatal.
     }
   },
 });

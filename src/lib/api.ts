@@ -26,6 +26,8 @@ export interface QueueItemDoc {
   durationSeconds?: number;
   publishedAt?: number;
   artworkUrl?: string;
+  /** Signed Worker media URL, present once the item is ready. */
+  mediaUrl?: string;
 }
 
 type PublicQuery<Args extends DefaultFunctionArgs, Ret> = FunctionReference<

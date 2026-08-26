@@ -10,7 +10,6 @@ import { EmptyState } from "../components/EmptyState";
 
 export function QueuePage() {
   const items = useQuery(api.items.list, {});
-  const me = useQuery(api.users.me, {});
   const add = useMutation(api.items.add);
   const [searchParams, setSearchParams] = useSearchParams();
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -24,13 +23,7 @@ export function QueuePage() {
     void add({ url: addParam }).catch(() => {});
   }, [addParam, add, setSearchParams]);
 
-  function mediaUrl(itemId: string): string | null {
-    const feedUrl = me?.feedUrl;
-    if (!feedUrl) return null;
-    return `${feedUrl.replace("/feed/", "/media/")}/${itemId}.mp3`;
-  }
-
-  function togglePlay(itemId: string) {
+  function togglePlay(itemId: string, mediaUrl: string | undefined) {
     const audio = audioRef.current;
     if (!audio) return;
     if (playingId === itemId) {
@@ -38,9 +31,8 @@ export function QueuePage() {
       setPlayingId(null);
       return;
     }
-    const url = mediaUrl(itemId);
-    if (!url) return;
-    audio.src = url;
+    if (!mediaUrl) return;
+    audio.src = mediaUrl;
     void audio.play();
     setPlayingId(itemId);
   }
@@ -64,7 +56,7 @@ export function QueuePage() {
                 key={item._id}
                 item={item}
                 isPlaying={playingId === item._id}
-                onTogglePlay={() => togglePlay(item._id)}
+                onTogglePlay={() => togglePlay(item._id, item.mediaUrl)}
               />
             ))}
           </div>

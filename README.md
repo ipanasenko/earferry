@@ -23,4 +23,4 @@ Convex URL via `bunx convex dev`).
 - React 19 + TypeScript + Tailwind 4 (Vite, Bun)
 - Convex (backend), Clerk (auth + billing)
 - Cloudflare: Workers static assets (frontend), Containers (shared extractor),
-  R2 (`earferry-audio` — extracted MP3s and squared episode artwork)
+  R2 (`earferry-media` — extracted MP3s and squared episode artwork)

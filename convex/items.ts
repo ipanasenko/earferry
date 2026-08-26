@@ -69,6 +69,7 @@ export const add = mutation({
           status: "queued",
           phase: undefined,
           error: undefined,
+          attempts: 0,
         });
         await scheduleExtraction(ctx, existing._id);
       } else {
@@ -94,10 +95,8 @@ export const remove = mutation({
   args: { id: v.id("items") },
   handler: async (ctx, args) => {
     const item = await ownedItem(ctx, args.id);
-    if (["probing", "extracting", "uploading"].includes(item.status)) {
-      await ctx.scheduler.runAfter(0, internal.extractor.cancel, { itemId: item._id });
-    }
-    // TODO: delete the R2 object for item.r2Key once R2 is wired.
+    // The Worker cancels a running job and deletes the R2 objects.
+    await ctx.scheduler.runAfter(0, internal.extractor.cancel, { itemId: item._id });
     await ctx.db.delete(item._id);
   },
 });
@@ -113,6 +112,7 @@ export const retry = mutation({
       status: "queued",
       phase: undefined,
       error: undefined,
+      attempts: 0,
     });
     await scheduleExtraction(ctx, item._id);
   },
@@ -192,8 +192,14 @@ export const recordProbe = internalMutation({
 export const markReady = internalMutation({
   args: {
     itemId: v.id("items"),
-    r2Key: v.optional(v.string()),
+    r2Key: v.string(),
     sizeBytes: v.optional(v.number()),
+    mediaUrl: v.optional(v.string()),
+    title: v.optional(v.string()),
+    channel: v.optional(v.string()),
+    description: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
@@ -202,10 +208,61 @@ export const markReady = internalMutation({
       status: "ready",
       phase: undefined,
       error: undefined,
+      attempts: 0,
       r2Key: args.r2Key,
       sizeBytes: args.sizeBytes,
+      mediaUrl: args.mediaUrl,
+      // Keep probe metadata unless the Worker sends fresher values.
+      title: args.title ?? item.title,
+      channel: args.channel ?? item.channel,
+      description: args.description ?? item.description,
+      durationSeconds: args.durationSeconds ?? item.durationSeconds,
+      publishedAt: args.publishedAt ?? item.publishedAt,
       expiresAt: Date.now() + AUDIO_RETENTION_MS,
     });
+  },
+});
+
+// Bounded automatic retry for retryable extractor failures.
+const MAX_AUTO_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 60_000;
+
+export const retryOrFail = internalMutation({
+  args: { itemId: v.id("items"), detail: v.string(), retryable: v.boolean() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.status === "ready") return;
+    const attempts = item.attempts ?? 0;
+    if (args.retryable && attempts < MAX_AUTO_RETRIES) {
+      const delay = RETRY_BASE_DELAY_MS * 2 ** attempts; // 1m, 2m, 4m
+      await ctx.db.patch(args.itemId, {
+        status: "queued",
+        attempts: attempts + 1,
+        phase: `Extraction failed, retrying (attempt ${attempts + 2})`,
+        error: undefined,
+      });
+      await ctx.scheduler.runAfter(delay, internal.extractor.run, { itemId: args.itemId });
+      return;
+    }
+    const failure = describeFailure(args.detail);
+    await ctx.db.patch(args.itemId, {
+      status: "failed",
+      phase: undefined,
+      error: `${failure.message} — ${args.detail}`.slice(0, 500),
+    });
+  },
+});
+
+// Item plus its owner, for the Worker-facing HTTP actions that need the
+// owner's feed token (media URL signing).
+export const itemWithUser = internalQuery({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item) return null;
+    const user = await ctx.db.get(item.userId);
+    if (!user) return null;
+    return { item, user };
   },
 });
 

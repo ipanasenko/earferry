@@ -17,17 +17,44 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
   Clerk's `has({ plan: "ferry" })` / `<Protect plan="ferry">`.
 - Extraction: the shared extractor container from the private repo
   (see `~/Projects/listen-later/docs/plans/shared-extractor.md`). EarFerry runs
-  its own instance in the `earferry` Cloudflare account and drives it over the
-  documented HTTP contract. Convex actions call the container
-  (`POST /probe`, `POST /extract`, `DELETE /jobs/:id`, `GET /health`); the
-  container calls back with a multipart upload sequence
-  (`POST {callbackBase}`, `PUT .../{uploadId}/{part}`, `POST .../complete`,
-  `POST .../fail`, `POST .../heartbeat`).
-- Storage: R2 bucket `earferry-audio` in the earferry Cloudflare account
+  its own instance in the `earferry` Cloudflare account: a thin
+  `earferry-extractor` Worker (source lives in the private listen-later repo,
+  deployed by a workflow there — private deploy secrets must not live in this
+  public repo) wraps the container and owns the R2 bucket. Convex drives the
+  Worker over HTTP; the container's multipart upload callbacks terminate in the
+  Worker, which streams into R2 and notifies Convex when done.
+
+- Storage: R2 bucket `earferry-media` in the earferry Cloudflare account
   (30-day lifecycle). Stores the extracted MP3s and the square episode
   artwork generated during extraction.
 - Hosting: frontend as Cloudflare static assets in the earferry account;
   Convex Cloud for the backend.
+
+## Extractor Worker contract (Convex <-> earferry-extractor Worker)
+
+All Worker endpoints (except /media) require `Authorization: Bearer INTERNAL_SECRET`.
+
+Convex -> Worker:
+- `POST /probe` `{ url }` -> container probe result (proxied).
+- `POST /extract` `{ itemId, url }` -> 202; Worker starts a container job with
+  callbackBase pointing at itself, streams the result into R2 at
+  `items/{itemId}.mp3` (artwork at `items/{itemId}.jpg`).
+- `DELETE /jobs/{itemId}` -> cancel + delete R2 objects.
+- `GET /health` -> container health (proxied).
+
+Worker -> Convex (HTTP actions on CONVEX_SITE_URL, same Bearer secret):
+- `POST /internal/extract-complete` `{ itemId, sizeBytes, durationSeconds?,
+  title?, channel?, description?, publishedAt? }`
+- `POST /internal/extract-failed` `{ itemId, error, detail?, retryable }`
+- `POST /internal/extract-heartbeat` `{ itemId, phase, elapsedSeconds? }`
+
+Media (public, podcast clients):
+- `GET /media/{feedToken}/{itemId}.mp3?s={sig}` on the Worker, byte-range
+  support from R2. `sig = hex(HMAC-SHA256(INTERNAL_SECRET, feedToken + "/" +
+  itemId))`. Convex builds these URLs in the RSS feed (env MEDIA_BASE_URL).
+
+Convex env vars: `EXTRACTOR_URL`, `INTERNAL_SECRET`, `MEDIA_BASE_URL`,
+optional `FEED_BASE_URL`.
 
 ## Convex API contract (frontend <-> backend)
 
@@ -46,8 +73,9 @@ Failed (red, with retry).
 
 - `GET /feed/{feedToken}` (Convex HTTP action) — RSS with episode notes from the
   YouTube description, timestamped lines as chapters.
-- `GET /media/{feedToken}/{itemId}.mp3` — 302 redirect to a presigned R2 URL
-  (R2 handles byte ranges). Stubbed until the extractor is wired.
+- `GET /media/{feedToken}/{itemId}.mp3?s={sig}` — served by the
+  earferry-extractor Worker directly from R2 (byte-range support). Convex signs
+  and stores the URL on the item when it becomes ready.
 
 ## Conventions
 

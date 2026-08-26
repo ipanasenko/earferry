@@ -2,7 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { buildFeed } from "./feed";
+import { buildFeed, signedMediaUrl } from "./feed";
 
 const http = httpRouter();
 
@@ -19,6 +19,7 @@ function internalAuthorized(request: Request): boolean {
 }
 
 // GET /feed/{feedToken} — RSS 2.0 podcast feed of the user's ready items.
+// Media enclosures point at the earferry-extractor Worker (MEDIA_BASE_URL).
 http.route({
   pathPrefix: "/feed/",
   method: "GET",
@@ -31,7 +32,7 @@ http.route({
     if (!user) return json({ error: "Not found" }, 404);
 
     const items = await ctx.runQuery(internal.items.readyItemsForUser, { userId: user._id });
-    const xml = buildFeed(items, url.origin, user.feedToken);
+    const xml = await buildFeed(items, url.origin, user.feedToken);
     return new Response(xml, {
       headers: {
         "content-type": "application/rss+xml; charset=utf-8",
@@ -41,71 +42,99 @@ http.route({
   }),
 });
 
-// GET /media/{feedToken}/{itemId}.mp3 — will 302 to a presigned R2 URL.
+// ---- Worker -> Convex callbacks (docs/ARCHITECTURE.md, Extractor Worker
+// contract). The earferry-extractor Worker calls these with
+// `authorization: Bearer {INTERNAL_SECRET}`. itemId is the Convex item
+// document id; the MP3 lives in R2 at items/{itemId}.mp3.
+
+async function readBody<T>(request: Request): Promise<T | null> {
+  return (await request.json().catch(() => null)) as T | null;
+}
+
+// POST /internal/extract-complete
+// { itemId, sizeBytes, durationSeconds?, title?, channel?, description?, publishedAt? }
 http.route({
-  pathPrefix: "/media/",
-  method: "GET",
+  path: "/internal/extract-complete",
+  method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const url = new URL(request.url);
-    const match = url.pathname.match(/^\/media\/([^/]+)\/([^/]+)\.mp3$/);
-    if (!match) return json({ error: "Not found" }, 404);
-    const feedToken = decodeURIComponent(match[1]);
+    if (!internalAuthorized(request)) return json({ error: "Unauthorized" }, 401);
+    const body = await readBody<{
+      itemId?: string;
+      sizeBytes?: number;
+      durationSeconds?: number;
+      title?: string;
+      channel?: string;
+      description?: string;
+      publishedAt?: number;
+    }>(request);
+    if (!body?.itemId) return json({ error: "itemId is required" }, 400);
+    const itemId = body.itemId as Id<"items">;
 
-    const user = await ctx.runQuery(internal.items.userByFeedToken, { feedToken });
-    if (!user) return json({ error: "Not found" }, 404);
+    const found = await ctx.runQuery(internal.items.itemWithUser, { itemId }).catch(() => null);
+    if (!found) return json({ error: "Item not found" }, 404);
+    if (found.item.status === "ready") return json({ ready: true, ignored: true });
 
-    // TODO: once R2 is wired, verify the item belongs to this user, is ready,
-    // and 302-redirect to a presigned R2 URL for item.r2Key (R2 handles byte
-    // ranges). Until then media is not served.
-    return json({ error: "Media is not available yet" }, 404);
+    // Signed once here (crypto.subtle is available in HTTP actions) and stored
+    // on the item, so queries can return it without signing.
+    const mediaUrl = await signedMediaUrl(found.user.feedToken, itemId);
+    await ctx.runMutation(internal.items.markReady, {
+      itemId,
+      r2Key: `items/${itemId}.mp3`,
+      sizeBytes: Number(body.sizeBytes) > 0 ? Number(body.sizeBytes) : undefined,
+      durationSeconds: Number(body.durationSeconds) > 0 ? Number(body.durationSeconds) : undefined,
+      title: typeof body.title === "string" ? body.title : undefined,
+      channel: typeof body.channel === "string" ? body.channel : undefined,
+      description: typeof body.description === "string" ? body.description : undefined,
+      publishedAt: Number(body.publishedAt) > 0 ? Number(body.publishedAt) : undefined,
+      mediaUrl,
+    });
+    return json({ ready: true });
   }),
 });
 
-// Extractor callback sequence. The container calls, with
-// `authorization: Bearer {INTERNAL_SECRET}`, against
-// callbackBase = /internal/extract-callback/{itemId}:
-//   POST {base}                         begin multipart upload -> { uploadId }
-//   PUT  {base}/{uploadId}/{part}       upload one part -> { etag, partNumber }
-//   PUT  {base}/art                     square episode artwork
-//   POST {base}/{uploadId}/complete     finish -> item becomes ready
-//   POST {base}/fail                    report failure -> item becomes failed
-//   POST {base}/heartbeat               liveness + phase
-// R2 wiring comes later; parts are acknowledged without being stored.
-const extractCallback = httpAction(async (ctx, request) => {
-  if (!internalAuthorized(request)) return json({ error: "Unauthorized" }, 401);
+// POST /internal/extract-failed  { itemId, error, detail?, retryable }
+http.route({
+  path: "/internal/extract-failed",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!internalAuthorized(request)) return json({ error: "Unauthorized" }, 401);
+    const body = await readBody<{
+      itemId?: string;
+      error?: string;
+      detail?: string;
+      retryable?: boolean;
+    }>(request);
+    if (!body?.itemId) return json({ error: "itemId is required" }, 400);
 
-  const url = new URL(request.url);
-  const segments = url.pathname
-    .slice("/internal/extract-callback/".length)
-    .split("/")
-    .filter(Boolean);
-  const itemId = decodeURIComponent(segments[0] ?? "") as Id<"items">;
-  if (!itemId) return json({ error: "Not found" }, 404);
-
-  const item = await ctx.runQuery(internal.items.get, { itemId }).catch(() => null);
-  if (!item) return json({ error: "Item not found" }, 404);
-  const rest = segments.slice(1);
-
-  // POST {base} — begin the upload.
-  if (request.method === "POST" && rest.length === 0) {
-    if (!["extracting", "uploading"].includes(item.status)) {
-      return json({ error: "Extraction attempt is no longer active" }, 409);
-    }
-    await ctx.runMutation(internal.items.setStatus, {
-      itemId,
-      status: "uploading",
-      phase: "Uploading MP3",
+    const message = String(body.error ?? "Extraction failed");
+    const detail = body.detail ? `${message}: ${String(body.detail)}` : message;
+    await ctx.runMutation(internal.items.retryOrFail, {
+      itemId: body.itemId as Id<"items">,
+      detail: detail.slice(0, 500),
+      retryable: body.retryable === true,
     });
-    // TODO: create a real R2 multipart upload and return its uploadId.
-    return json({ key: `${itemId}.mp3`, uploadId: `stub-${itemId}` });
-  }
+    return json({ failed: true });
+  }),
+});
 
-  // POST {base}/heartbeat
-  if (request.method === "POST" && rest[0] === "heartbeat") {
+// POST /internal/extract-heartbeat  { itemId, phase, elapsedSeconds? }
+http.route({
+  path: "/internal/extract-heartbeat",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    if (!internalAuthorized(request)) return json({ error: "Unauthorized" }, 401);
+    const body = await readBody<{ itemId?: string; phase?: string; elapsedSeconds?: number }>(
+      request,
+    );
+    if (!body?.itemId) return json({ error: "itemId is required" }, 400);
+    const itemId = body.itemId as Id<"items">;
+
+    const item = await ctx.runQuery(internal.items.get, { itemId }).catch(() => null);
+    if (!item) return json({ error: "Item not found" }, 404);
     if (!["extracting", "uploading"].includes(item.status)) {
       return json({ error: "Extraction attempt is no longer active" }, 409);
     }
-    const body = (await request.json().catch(() => ({}))) as { phase?: string };
+
     const phase =
       body.phase === "downloading"
         ? "Downloading and converting audio"
@@ -122,59 +151,7 @@ const extractCallback = httpAction(async (ctx, request) => {
       });
     }
     return json({ alive: true });
-  }
-
-  // POST {base}/fail — classify with the shared error strings.
-  if (request.method === "POST" && rest[0] === "fail") {
-    if (item.status === "ready") return json({ ignored: true });
-    const body = (await request.json().catch(() => ({}))) as { error?: unknown };
-    await ctx.runMutation(internal.items.markFailed, {
-      itemId,
-      detail: String(body.error ?? "Media operation failed").slice(0, 500),
-    });
-    return json({ failed: true });
-  }
-
-  // PUT {base}/art — episode artwork.
-  if (request.method === "PUT" && rest[0] === "art") {
-    if (!["extracting", "uploading"].includes(item.status)) {
-      return json({ error: "Extraction attempt is no longer active" }, 409);
-    }
-    // TODO: store the artwork in R2 and point the item at the stored copy.
-    await request.arrayBuffer().catch(() => null);
-    return json({ stored: true });
-  }
-
-  // PUT {base}/{uploadId}/{part} — upload one part.
-  if (request.method === "PUT" && rest.length === 2 && /^\d+$/.test(rest[1])) {
-    if (item.status !== "uploading") {
-      return json({ error: "Extraction attempt is no longer active" }, 409);
-    }
-    const partNumber = Number(rest[1]);
-    // TODO: stream the body into the R2 multipart upload and return its etag.
-    await request.arrayBuffer().catch(() => null);
-    return json({ etag: `stub-etag-${partNumber}`, partNumber });
-  }
-
-  // POST {base}/{uploadId}/complete — finish; the item becomes ready.
-  if (request.method === "POST" && rest.length === 2 && rest[1] === "complete") {
-    if (item.status !== "uploading") {
-      return json({ error: "Extraction attempt is no longer active" }, 409);
-    }
-    const body = (await request.json().catch(() => ({}))) as { size?: number };
-    // TODO: complete the R2 multipart upload and verify the object size.
-    await ctx.runMutation(internal.items.markReady, {
-      itemId,
-      r2Key: `${itemId}.mp3`,
-      sizeBytes: Number(body.size) > 0 ? Number(body.size) : undefined,
-    });
-    return json({ ready: true });
-  }
-
-  return json({ error: "Not found" }, 404);
+  }),
 });
-
-http.route({ pathPrefix: "/internal/extract-callback/", method: "POST", handler: extractCallback });
-http.route({ pathPrefix: "/internal/extract-callback/", method: "PUT", handler: extractCallback });
 
 export default http;

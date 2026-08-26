@@ -3,6 +3,40 @@
 
 import type { Doc } from "./_generated/dataModel";
 
+// ---- Worker media URLs -----------------------------------------------------
+// Media is served by the earferry-extractor Worker:
+//   GET {MEDIA_BASE_URL}/media/{feedToken}/{itemId}.mp3?s={sig}
+//   sig = hex(HMAC-SHA256(INTERNAL_SECRET, `${feedToken}/${itemId}`))
+// These helpers run in HTTP actions (crypto.subtle is available there).
+
+export function mediaBaseUrl(): string {
+  const base = process.env.MEDIA_BASE_URL;
+  if (!base) throw new Error("MEDIA_BASE_URL must be set");
+  return base.replace(/\/$/, "");
+}
+
+export async function signMediaPath(feedToken: string, itemId: string): Promise<string> {
+  const secret = process.env.INTERNAL_SECRET;
+  if (!secret) throw new Error("INTERNAL_SECRET must be set");
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(`${feedToken}/${itemId}`));
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
+export async function signedMediaUrl(feedToken: string, itemId: string): Promise<string> {
+  const sig = await signMediaPath(feedToken, itemId);
+  return `${mediaBaseUrl()}/media/${encodeURIComponent(feedToken)}/${encodeURIComponent(itemId)}.mp3?s=${sig}`;
+}
+
 function xml(value: unknown = ""): string {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -70,15 +104,23 @@ function chapterXml(description: string | undefined): string {
       </psc:chapters>`;
 }
 
-export function buildFeed(items: Array<Doc<"items">>, origin: string, feedToken: string): string {
+export async function buildFeed(
+  items: Array<Doc<"items">>,
+  origin: string,
+  feedToken: string,
+): Promise<string> {
   const base = origin.replace(/\/$/, "");
   const feedUrl = `${base}/feed/${encodeURIComponent(feedToken)}`;
   const feedDescription = "YouTube videos saved for listening later.";
-  const media = (itemId: string) =>
-    `${base}/media/${encodeURIComponent(feedToken)}/${encodeURIComponent(itemId)}.mp3`;
+  // Items store their signed Worker media URL when they become ready; sign on
+  // the fly for anything that predates that.
+  const mediaUrls = await Promise.all(
+    items.map((item) => item.mediaUrl ?? signedMediaUrl(feedToken, item._id)),
+  );
 
   const entries = items
-    .map((item) => {
+    .map((item, index) => {
+      const media = mediaUrls[index];
       const description = [
         item.description ||
           (item.channel
@@ -100,7 +142,7 @@ export function buildFeed(items: Array<Doc<"items">>, origin: string, feedToken:
           ? `<itunes:duration>${Math.round(Number(item.durationSeconds))}</itunes:duration>`
           : ""
       }
-      <enclosure url="${xml(media(item._id))}" length="${Number(item.sizeBytes) || 0}" type="audio/mpeg" />
+      <enclosure url="${xml(media)}" length="${Number(item.sizeBytes) || 0}" type="audio/mpeg" />
     </item>`;
     })
     .join("");

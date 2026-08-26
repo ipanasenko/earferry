@@ -36,6 +36,10 @@ export default defineSchema({
     error: v.optional(v.string()),
     r2Key: v.optional(v.string()),
     sizeBytes: v.optional(v.number()),
+    // Signed Worker media URL, stored when the item becomes ready.
+    mediaUrl: v.optional(v.string()),
+    // Automatic retry attempts for the current extraction (bounded backoff).
+    attempts: v.optional(v.number()),
     artworkUrl: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
   })
