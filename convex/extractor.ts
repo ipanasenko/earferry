@@ -149,10 +149,15 @@ export async function health(baseUrl: string, secret: string): Promise<Extractor
 }
 
 export const run = internalAction({
-  args: { itemId: v.id("items") },
+  args: { itemId: v.id("items"), startedAt: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    // The dispatcher (items.dispatchNext) already claimed the item by moving
+    // it to "probing"; anything else means this run was superseded. startedAt
+    // is the claim time and fences this run's failure reports against a
+    // newer claim of the same item.
     const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
-    if (!item || !["queued", "probing"].includes(item.status)) return;
+    if (!item || item.status !== "probing") return;
+    if (args.startedAt !== undefined && item.extractionStartedAt !== args.startedAt) return;
 
     const config = extractorConfig();
     if (!config) {
@@ -165,8 +170,6 @@ export const run = internalAction({
     const { baseUrl, secret } = config;
 
     try {
-      const started = await ctx.runMutation(internal.items.beginProbe, { itemId: args.itemId });
-      if (!started) return;
       const metadata = await probeVideo(baseUrl, secret, item.url);
       const duration = Number(metadata.duration);
       await ctx.runMutation(internal.items.recordProbe, {
@@ -189,6 +192,8 @@ export const run = internalAction({
         await ctx.scheduler.runAfter(nextCheckDelay(metadata), internal.extractor.recheck, {
           itemId: args.itemId,
         });
+        // Parking this item frees the slot for the next queued one.
+        await ctx.scheduler.runAfter(0, internal.items.dispatchNext, {});
         return;
       }
 
@@ -204,14 +209,13 @@ export const run = internalAction({
     } catch (error) {
       const detail = String((error as Error)?.message ?? error).slice(0, 500);
       if (detail === "Another extraction is already running") {
-        // Busy extractor: keep the item queued and try again shortly.
-        await ctx.runMutation(internal.items.setStatus, {
+        // The container is still busy (a cancelled job winding down, or a
+        // self-test). Requeue and let the dispatcher retry shortly.
+        await ctx.runMutation(internal.items.requeue, {
           itemId: args.itemId,
-          status: "queued",
           phase: "Waiting for a free extractor",
-        });
-        await ctx.scheduler.runAfter(60_000, internal.extractor.run, {
-          itemId: args.itemId,
+          delayMs: 60_000,
+          observedStartedAt: args.startedAt,
         });
         return;
       }
@@ -221,6 +225,7 @@ export const run = internalAction({
         itemId: args.itemId,
         detail,
         retryable: !describeFailure(detail).permanent,
+        observedStartedAt: args.startedAt,
       });
     }
   },
@@ -298,11 +303,7 @@ export const recheck = internalAction({
   handler: async (ctx, args) => {
     const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
     if (!item || item.status !== "waiting") return;
-    await ctx.runMutation(internal.items.setStatus, {
-      itemId: args.itemId,
-      status: "queued",
-    });
-    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: args.itemId });
+    await ctx.runMutation(internal.items.requeue, { itemId: args.itemId });
   },
 });
 

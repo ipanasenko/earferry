@@ -46,10 +46,14 @@ export default defineSchema({
     mediaUrl: v.optional(v.string()),
     // Automatic retry attempts for the current extraction (bounded backoff).
     attempts: v.optional(v.number()),
+    // When a queued item becomes due. The dispatcher starts the oldest due
+    // queued item, so extraction is first-in-first-out across all users.
+    nextAttemptAt: v.optional(v.number()),
     artworkUrl: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
   })
     .index("by_user", ["userId", "position"])
     .index("by_user_video", ["userId", "videoId"])
-    .index("by_status_expires", ["status", "expiresAt"]),
+    .index("by_status_expires", ["status", "expiresAt"])
+    .index("by_status_next", ["status", "nextAttemptAt"]),
 });
