@@ -91,3 +91,21 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Loading mark: waves drift left-to-right one wavelength (40px) per loop. */
+.wave-drift-slow {
+  animation: wave-drift 2.8s linear infinite;
+}
+
+.wave-drift-fast {
+  animation: wave-drift 2s linear infinite;
+}
+
+@keyframes wave-drift {
+  from {
+    transform: translateX(-40px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

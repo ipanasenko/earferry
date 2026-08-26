@@ -8,6 +8,7 @@ import { Footer } from "../components/Footer";
 import { AddForm } from "../components/AddForm";
 import { QueueItem } from "../components/QueueItem";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingState } from "../components/LoadingState";
 
 export function QueuePage() {
   const items = useQuery(api.items.list, {});
@@ -32,7 +33,9 @@ export function QueuePage() {
           </h1>
           <AddForm />
         </section>
-        {items === undefined ? null : items.length === 0 ? (
+        {items === undefined ? (
+          <LoadingState />
+        ) : items.length === 0 ? (
           <EmptyState />
         ) : (
           <div className="flex flex-col">

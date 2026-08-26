@@ -260,3 +260,62 @@ export function BugIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
 export function RetryIcon({ stroke = "var(--color-ink)" }: IconProps) {
   return <UiIcon icon={HugeReload} stroke={stroke} />;
 }
+
+/**
+ * The normal logo mark with drifting waves, used as the queue loading state.
+ * The ear stays static; each wave is drawn one wavelength (40px) wider than
+ * its visible window and loops via translateX (see .wave-drift-* in index.css).
+ */
+export function LoadingMark({ size = 96 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 120 120"
+      xmlns="http://www.w3.org/2000/svg"
+      className="shrink-0"
+      aria-hidden="true"
+    >
+      <path
+        d="M76 46 C78 28 62 20 49 26 C35 33 32 51 40 63 C45 70 51 73 53 78"
+        fill="none"
+        stroke="var(--color-ink)"
+        strokeWidth="10"
+        strokeLinecap="round"
+      />
+      <path
+        d="M63 44 C63 37 55 35 50 39"
+        fill="none"
+        stroke="var(--color-ink)"
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
+      <clipPath id="loading-wave-top">
+        <rect x="17" y="68" width="86" height="16" />
+      </clipPath>
+      <clipPath id="loading-wave-bottom">
+        <rect x="25" y="82" width="66" height="14" />
+      </clipPath>
+      <g clipPath="url(#loading-wave-top)">
+        <path
+          className="wave-drift-slow"
+          d="M-60 78 Q-50 70 -40 78 T-20 78 T0 78 T20 78 T40 78 T60 78 T80 78 T100 78 T120 78 T140 78"
+          fill="none"
+          stroke="var(--color-ink)"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+      </g>
+      <g clipPath="url(#loading-wave-bottom)">
+        <path
+          className="wave-drift-fast"
+          d="M-52 90 Q-42 84 -32 90 T-12 90 T8 90 T28 90 T48 90 T68 90 T88 90 T108 90 T128 90"
+          fill="none"
+          stroke="var(--color-wave)"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+      </g>
+    </svg>
+  );
+}
