@@ -1,8 +1,17 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import { AnimatePresence, motion } from "motion/react";
 import { api, type QueueItemDoc } from "../lib/api";
 import { track } from "../lib/analytics";
-import { FailedThumbMark, PlayIcon, RetryIcon, TrashIcon, YoutubeIcon } from "./icons";
+import {
+  CancelIcon,
+  ConfirmIcon,
+  FailedThumbMark,
+  PlayIcon,
+  RetryIcon,
+  TrashIcon,
+  YoutubeIcon,
+} from "./icons";
 
 type UiStatus = "ready" | "extracting" | "waiting" | "failed";
 
@@ -88,11 +97,13 @@ function IconButton({
   title,
   onClick,
   variant = "surface",
+  disabled = false,
   children,
 }: {
   title: string;
   onClick: () => void;
-  variant?: "surface" | "ink" | "accent" | "danger";
+  variant?: "surface" | "ink" | "accent" | "danger" | "danger-solid";
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   const look =
@@ -100,16 +111,19 @@ function IconButton({
       ? "bg-ink hover:opacity-85"
       : variant === "accent"
         ? "bg-accent hover:opacity-85"
-        : variant === "danger"
-          ? "bg-surface hover:bg-danger-soft"
-          : "bg-surface hover:opacity-85";
+        : variant === "danger-solid"
+          ? "bg-danger hover:opacity-85"
+          : variant === "danger"
+            ? "bg-surface hover:bg-danger-soft"
+            : "bg-surface hover:opacity-85";
   return (
     <button
       type="button"
       title={title}
       aria-label={title}
       onClick={onClick}
-      className={`w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 cursor-pointer transition-[background-color,opacity] ${look}`}
+      disabled={disabled}
+      className={`w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 cursor-pointer transition-[background-color,opacity] disabled:cursor-wait disabled:opacity-60 ${look}`}
     >
       {children}
     </button>
@@ -117,6 +131,8 @@ function IconButton({
 }
 
 export function QueueItem({ item }: { item: QueueItemDoc }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const remove = useMutation(api.items.remove);
   const retry = useMutation(api.items.retry);
   const ui = uiStatus(item.status);
@@ -139,55 +155,88 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
       >
         {pill.label}
       </div>
-      <div className="flex shrink-0 gap-2">
-        {ui === "ready" ? (
-          <IconButton
-            title="Open MP3"
-            onClick={() => {
-              if (item.mediaUrl) window.open(item.mediaUrl, "_blank", "noopener");
-            }}
-          >
-            <PlayIcon stroke="var(--color-text-muted)" />
-          </IconButton>
-        ) : ui === "failed" ? (
-          <IconButton
-            title="Retry extraction"
-            onClick={() => {
-              track("item_retried");
-              void retry({ id: item._id });
-            }}
-          >
-            <RetryIcon stroke="var(--color-text-muted)" />
-          </IconButton>
-        ) : (
-          // Not ready yet: a disabled play button keeps the action lanes
-          // aligned and signals what the slot will become.
-          <button
-            type="button"
-            disabled
-            aria-label="Not ready to play yet"
-            title="Not ready to play yet"
-            className="w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 bg-surface opacity-55 cursor-not-allowed"
-          >
-            <PlayIcon stroke="var(--color-text-muted)" />
-          </button>
-        )}
-        <IconButton
-          title="Open on YouTube"
-          onClick={() => window.open(item.url, "_blank", "noopener")}
-        >
-          <YoutubeIcon />
-        </IconButton>
-        <IconButton
-          title="Delete"
-          variant="danger"
-          onClick={() => {
-            track("item_removed");
-            void remove({ id: item._id });
-          }}
-        >
-          <TrashIcon stroke="var(--color-danger)" />
-        </IconButton>
+      <div className="relative w-32.5 h-9.5 flex shrink-0 justify-end">
+        <AnimatePresence initial={false} mode="popLayout">
+          {confirmingDelete ? (
+            <motion.div
+              key="confirm-delete"
+              className="absolute inset-0 flex justify-end gap-2"
+              initial={{ opacity: 0, x: 6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 6 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              <IconButton
+                title="Confirm delete"
+                variant="danger-solid"
+                disabled={deleting}
+                onClick={() => {
+                  setDeleting(true);
+                  track("item_removed");
+                  void remove({ id: item._id }).catch(() => setDeleting(false));
+                }}
+              >
+                <ConfirmIcon />
+              </IconButton>
+              <IconButton
+                title="Cancel delete"
+                disabled={deleting}
+                onClick={() => setConfirmingDelete(false)}
+              >
+                <CancelIcon />
+              </IconButton>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="default-actions"
+              className="absolute inset-0 flex gap-2"
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 6 }}
+              transition={{ duration: 0.12, ease: "easeIn" }}
+            >
+              {ui === "ready" ? (
+                <IconButton
+                  title="Open MP3"
+                  onClick={() => {
+                    if (item.mediaUrl) window.open(item.mediaUrl, "_blank", "noopener");
+                  }}
+                >
+                  <PlayIcon stroke="var(--color-text-muted)" />
+                </IconButton>
+              ) : ui === "failed" ? (
+                <IconButton
+                  title="Retry extraction"
+                  onClick={() => {
+                    track("item_retried");
+                    void retry({ id: item._id });
+                  }}
+                >
+                  <RetryIcon stroke="var(--color-text-muted)" />
+                </IconButton>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  aria-label="Not ready to play yet"
+                  title="Not ready to play yet"
+                  className="w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 bg-surface opacity-55 cursor-not-allowed"
+                >
+                  <PlayIcon stroke="var(--color-text-muted)" />
+                </button>
+              )}
+              <IconButton
+                title="Open on YouTube"
+                onClick={() => window.open(item.url, "_blank", "noopener")}
+              >
+                <YoutubeIcon />
+              </IconButton>
+              <IconButton title="Delete" variant="danger" onClick={() => setConfirmingDelete(true)}>
+                <TrashIcon stroke="var(--color-danger)" />
+              </IconButton>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -8,7 +8,9 @@ import {
   YoutubeIcon as HugeYoutube,
   Delete02Icon as HugeDelete,
   Bug01Icon as HugeBug,
+  Cancel01Icon as HugeCancel,
   ReloadIcon as HugeReload,
+  Tick01Icon as HugeTick,
 } from "@hugeicons/core-free-icons";
 
 export function LogoMark({ size = 38 }: { size?: number }) {
@@ -259,6 +261,14 @@ export function BugIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
 
 export function RetryIcon({ stroke = "var(--color-ink)" }: IconProps) {
   return <UiIcon icon={HugeReload} stroke={stroke} />;
+}
+
+export function ConfirmIcon({ stroke = "var(--color-background)" }: IconProps) {
+  return <UiIcon icon={HugeTick} stroke={stroke} />;
+}
+
+export function CancelIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
+  return <UiIcon icon={HugeCancel} stroke={stroke} />;
 }
 
 /**
