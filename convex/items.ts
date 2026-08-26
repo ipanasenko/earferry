@@ -9,7 +9,7 @@ import {
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { normalizeYouTubeUrl, youtubeVideoId, describeFailure } from "./domain";
-import { currentUser, getOrCreateUser } from "./users";
+import { currentUser, getOrCreateUser, requirePaidEntitlement } from "./users";
 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 
@@ -49,6 +49,7 @@ export const list = query({
 export const add = mutation({
   args: { url: v.string() },
   handler: async (ctx, args) => {
+    await requirePaidEntitlement(ctx);
     const url = normalizeYouTubeUrl(args.url);
     const videoId = youtubeVideoId(url);
     const user = await getOrCreateUser(ctx);
@@ -104,6 +105,7 @@ export const remove = mutation({
 export const retry = mutation({
   args: { id: v.id("items") },
   handler: async (ctx, args) => {
+    await requirePaidEntitlement(ctx);
     const item = await ownedItem(ctx, args.id);
     if (!["failed", "waiting", "ready"].includes(item.status)) {
       throw new Error("This item cannot be retried yet");
