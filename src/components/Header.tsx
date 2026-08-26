@@ -73,6 +73,10 @@ export function Header() {
             appearance={{
               elements: {
                 userButtonAvatarBox: "w-9.5 h-9.5 shadow-pill",
+                // Clerk's default focus ring hugs the trigger box, which reads
+                // as an oval around the round avatar. Use a round brand ring.
+                userButtonTrigger:
+                  "rounded-pill focus:[box-shadow:none] focus-visible:[outline:2px_solid_var(--color-wave)] focus-visible:[outline-offset:2px]",
               },
             }}
           />
