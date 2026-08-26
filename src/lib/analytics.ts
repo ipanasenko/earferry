@@ -23,7 +23,8 @@ export type AnalyticsEvent =
   | "item_add_failed"
   | "item_removed"
   | "item_retried"
-  | "feed_url_copied";
+  | "feed_url_copied"
+  | "feed_url_rotated";
 
 export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {
   if (!analyticsEnabled) return;

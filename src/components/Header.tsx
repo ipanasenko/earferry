@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../lib/api";
 import { track } from "../lib/analytics";
 import { LogoMark } from "./icons";
@@ -37,6 +37,40 @@ function FeedUrlButton() {
   );
 }
 
+function RotateFeedButton() {
+  const rotate = useMutation(api.users.rotateFeedToken);
+  const [rotating, setRotating] = useState(false);
+
+  async function confirmRotation() {
+    if (
+      !window.confirm(
+        "Replace your private feed URL? Podcast apps using the old URL will stop receiving updates.",
+      )
+    )
+      return;
+    setRotating(true);
+    try {
+      const result = await rotate({});
+      await navigator.clipboard.writeText(result.feedUrl);
+      track("feed_url_rotated");
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void confirmRotation()}
+      disabled={rotating}
+      className={pillButtonClass("disabled:opacity-50")}
+      title="Replace a leaked private feed URL and copy the new one"
+    >
+      {rotating ? "Rotating…" : "Rotate feed"}
+    </button>
+  );
+}
+
 function BookmarkletButton() {
   const code = `javascript:location.href='${window.location.origin}/?add='+encodeURIComponent(location.href)`;
   return (
@@ -68,6 +102,9 @@ export function Header() {
       <SignedIn>
         <div className="flex flex-wrap justify-end gap-2.5">
           <FeedUrlButton />
+          <span className="hidden sm:block">
+            <RotateFeedButton />
+          </span>
           <span className="hidden sm:block">
             <BookmarkletButton />
           </span>
