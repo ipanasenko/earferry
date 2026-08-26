@@ -4,7 +4,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-reac
 import { useQuery } from "convex/react";
 import { api } from "../lib/api";
 import { track } from "../lib/analytics";
-import { ConfirmIcon, FeedIcon, LogoMark } from "./icons";
+import { ConfirmIcon, CopyIcon, FeedIcon, LogoMark } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 function pillButtonClass(extra = "") {
@@ -30,10 +30,20 @@ function FeedUrlButton() {
         type="button"
         onClick={copy}
         disabled={!feedUrl}
-        className={pillButtonClass("hidden sm:flex disabled:opacity-50")}
+        className={pillButtonClass("hidden sm:flex gap-1.5 disabled:opacity-50")}
         title="Copy your private podcast feed URL"
       >
-        {copied ? "Copied ✓" : "Feed URL ⎘"}
+        {copied ? (
+          <>
+            Copied
+            <ConfirmIcon stroke="var(--color-success)" />
+          </>
+        ) : (
+          <>
+            Feed URL
+            <CopyIcon />
+          </>
+        )}
       </button>
       <button
         type="button"

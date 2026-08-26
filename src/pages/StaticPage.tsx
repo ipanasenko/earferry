@@ -12,7 +12,7 @@ export function StaticPageLayout({
 }) {
   return (
     <div className="page-gradient min-h-screen">
-      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-6 md:px-25">
+      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-4 sm:px-6 md:px-25">
         <Header />
         <main className="w-full max-w-165 mx-auto flex flex-col">
           <h1 className="mb-1.5 font-extrabold tracking-tight text-ink text-[32px]/10 md:text-display/display">

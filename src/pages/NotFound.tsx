@@ -4,7 +4,7 @@ import { DrowningEarMark } from "../components/icons";
 export function NotFoundPage() {
   return (
     <div className="page-gradient min-h-screen">
-      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-6 md:px-25">
+      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-4 sm:px-6 md:px-25">
         <Header />
         <section className="flex flex-col items-center pt-11 gap-5">
           <DrowningEarMark />

@@ -3,6 +3,7 @@
 
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  Copy01Icon as HugeCopy,
   PlayIcon as HugePlay,
   PauseIcon as HugePause,
   YoutubeIcon as HugeYoutube,
@@ -269,6 +270,20 @@ export function CancelIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
 
 export function FeedIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
   return <UiIcon icon={HugeRss} stroke={stroke} />;
+}
+
+/** Inline copy glyph sized to sit next to 13px button labels. */
+export function CopyIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
+  return (
+    <HugeiconsIcon
+      icon={HugeCopy}
+      size={14}
+      color={stroke}
+      strokeWidth={2}
+      className="shrink-0"
+      aria-hidden="true"
+    />
+  );
 }
 
 /**
