@@ -91,17 +91,24 @@ function IconButton({
 }: {
   title: string;
   onClick: () => void;
-  variant?: "surface" | "ink" | "accent";
+  variant?: "surface" | "ink" | "accent" | "danger";
   children: React.ReactNode;
 }) {
-  const bg = variant === "ink" ? "bg-ink" : variant === "accent" ? "bg-accent" : "bg-surface";
+  const look =
+    variant === "ink"
+      ? "bg-ink hover:opacity-85"
+      : variant === "accent"
+        ? "bg-accent hover:opacity-85"
+        : variant === "danger"
+          ? "bg-surface hover:bg-[#F9E2E5]"
+          : "bg-surface hover:opacity-85";
   return (
     <button
       type="button"
       title={title}
       aria-label={title}
       onClick={onClick}
-      className={`w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 cursor-pointer hover:opacity-85 transition-opacity ${bg}`}
+      className={`w-9.5 h-9.5 flex items-center justify-center rounded-pill shrink-0 cursor-pointer transition-[background-color,opacity] ${look}`}
     >
       {children}
     </button>
@@ -169,8 +176,8 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
         >
           <YoutubeIcon />
         </IconButton>
-        <IconButton title="Delete" onClick={() => void remove({ id: item._id })}>
-          <TrashIcon />
+        <IconButton title="Delete" variant="danger" onClick={() => void remove({ id: item._id })}>
+          <TrashIcon stroke="#B03A48" />
         </IconButton>
       </div>
     </div>
