@@ -1,15 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api, type QueueItemDoc } from "../lib/api";
-import {
-  BugIcon,
-  FailedThumbMark,
-  PauseIcon,
-  PlayIcon,
-  RetryIcon,
-  TrashIcon,
-  YoutubeIcon,
-} from "./icons";
+import { FailedThumbMark, PlayIcon, RetryIcon, TrashIcon, YoutubeIcon } from "./icons";
 
 type UiStatus = "ready" | "extracting" | "waiting" | "failed";
 
@@ -116,30 +108,12 @@ function IconButton({
   );
 }
 
-export function QueueItem({
-  item,
-  isPlaying,
-  onTogglePlay,
-}: {
-  item: QueueItemDoc;
-  isPlaying: boolean;
-  onTogglePlay: () => void;
-}) {
+export function QueueItem({ item }: { item: QueueItemDoc }) {
   const remove = useMutation(api.items.remove);
   const retry = useMutation(api.items.retry);
   const ui = uiStatus(item.status);
   const pill = STATUS_PILL[ui];
   const failed = ui === "failed";
-
-  function showDetails() {
-    const lines = [
-      item.title ?? item.url,
-      `Status: ${item.status}`,
-      item.phase ? `Phase: ${item.phase}` : null,
-      item.error ? `Details: ${item.error}` : null,
-    ].filter(Boolean);
-    window.alert(lines.join("\n"));
-  }
 
   return (
     <div className="flex items-center py-4.5 px-5.5 rounded-md gap-4.5 [box-shadow:#1B3A5B14_0px_2px_12px] bg-background">
@@ -160,8 +134,13 @@ export function QueueItem({
       </div>
       <div className="flex shrink-0 gap-2">
         {ui === "ready" ? (
-          <IconButton title={isPlaying ? "Pause" : "Play"} onClick={onTogglePlay} variant="ink">
-            {isPlaying ? <PauseIcon /> : <PlayIcon />}
+          <IconButton
+            title="Open MP3"
+            onClick={() => {
+              if (item.mediaUrl) window.open(item.mediaUrl, "_blank", "noopener");
+            }}
+          >
+            <PlayIcon stroke="var(--color-text-muted)" />
           </IconButton>
         ) : ui === "failed" ? (
           <IconButton
@@ -172,9 +151,9 @@ export function QueueItem({
             <RetryIcon />
           </IconButton>
         ) : (
-          <IconButton title="Show details" onClick={showDetails}>
-            <BugIcon />
-          </IconButton>
+          // The details (bug) button is hidden for now; the empty slot keeps
+          // the action lanes aligned across rows.
+          <div className="w-9.5 h-9.5 shrink-0" aria-hidden="true" />
         )}
         <IconButton
           title="Open on YouTube"

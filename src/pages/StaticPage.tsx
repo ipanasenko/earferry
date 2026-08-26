@@ -17,7 +17,7 @@ export function StaticPageLayout({
   const { signOut } = useClerk();
   return (
     <div className="page-gradient min-h-screen">
-      <div className="mx-auto w-full max-w-[1180px] flex flex-col px-6 md:px-25 pb-15">
+      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-6 md:px-25 pb-15">
         <header className="flex items-center pt-7.5 pb-10 gap-2.75">
           <Link to="/" className="flex items-center gap-2.75">
             <LogoMarkSmall size={30} />

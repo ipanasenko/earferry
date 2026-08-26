@@ -20,7 +20,7 @@ const FEATURES = [
 export function LandingPage() {
   return (
     <div className="page-gradient min-h-screen">
-      <div className="mx-auto w-full max-w-[1180px] flex flex-col px-6 md:px-25 pb-20">
+      <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-6 md:px-25 pb-20">
         <Header />
         <section className="flex flex-col items-center pt-6 pb-10 gap-4.5">
           <h1 className="font-extrabold tracking-tight text-center max-w-160 text-text text-[32px]/10 md:text-display/display">

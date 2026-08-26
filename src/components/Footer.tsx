@@ -15,7 +15,7 @@ export function Footer({
   showMark?: boolean;
 }) {
   return (
-    <footer className="flex items-center justify-center pt-12 gap-6">
+    <footer className="mt-auto flex items-center justify-center pt-12 gap-6">
       {showMark ? <FooterMark /> : null}
       {links.map((link) => (
         <Link key={link.to} to={link.to} className={linkClass}>
