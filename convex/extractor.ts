@@ -149,12 +149,15 @@ export async function health(baseUrl: string, secret: string): Promise<Extractor
 }
 
 export const run = internalAction({
-  args: { itemId: v.id("items") },
+  args: { itemId: v.id("items"), startedAt: v.optional(v.number()) },
   handler: async (ctx, args) => {
     // The dispatcher (items.dispatchNext) already claimed the item by moving
-    // it to "probing"; anything else means this run was superseded.
+    // it to "probing"; anything else means this run was superseded. startedAt
+    // is the claim time and fences this run's failure reports against a
+    // newer claim of the same item.
     const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
     if (!item || item.status !== "probing") return;
+    if (args.startedAt !== undefined && item.extractionStartedAt !== args.startedAt) return;
 
     const config = extractorConfig();
     if (!config) {
@@ -212,6 +215,7 @@ export const run = internalAction({
           itemId: args.itemId,
           phase: "Waiting for a free extractor",
           delayMs: 60_000,
+          observedStartedAt: args.startedAt,
         });
         return;
       }
@@ -221,6 +225,7 @@ export const run = internalAction({
         itemId: args.itemId,
         detail,
         retryable: !describeFailure(detail).permanent,
+        observedStartedAt: args.startedAt,
       });
     }
   },

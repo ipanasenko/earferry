@@ -103,7 +103,7 @@ export const dispatchNext = internalMutation({
       itemId: due._id,
       startedAt: now,
     });
-    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: due._id });
+    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: due._id, startedAt: now });
   },
 });
 
@@ -113,10 +113,19 @@ export const requeue = internalMutation({
     itemId: v.id("items"),
     phase: v.optional(v.string()),
     delayMs: v.optional(v.number()),
+    // Claim time of the attempt reporting back; a mismatch means the item was
+    // already re-claimed and this report is stale.
+    observedStartedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || ["ready", "deleting"].includes(item.status)) return;
+    if (
+      args.observedStartedAt !== undefined &&
+      item.extractionStartedAt !== args.observedStartedAt
+    ) {
+      return;
+    }
     await enqueueItem(ctx, args.itemId, { phase: args.phase }, args.delayMs ?? 0);
   },
 });
@@ -314,11 +323,12 @@ export const beginExtraction = internalMutation({
     if (!item || item.status !== "probing") return null;
     const now = Date.now();
     const attemptToken = crypto.randomUUID();
+    // extractionStartedAt keeps the dispatcher's claim time: the run action
+    // fences its failure reports by it across the whole attempt.
     await ctx.db.patch(args.itemId, {
       status: "extracting",
       phase: "Starting audio extraction",
       attemptToken,
-      extractionStartedAt: now,
       lastHeartbeatAt: now,
     });
     await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.extractor.recover, {
@@ -400,6 +410,7 @@ export const markReady = internalMutation({
     if (!item) return false;
     // A completion from a superseded attempt must not publish; the Worker
     // deletes its R2 objects when this answers with a rejection.
+    if (!["extracting", "uploading"].includes(item.status)) return false;
     if (item.attemptToken && args.attempt !== item.attemptToken) return false;
     const expiresAt = Date.now() + AUDIO_RETENTION_MS;
     await ctx.db.patch(args.itemId, {
@@ -490,13 +501,20 @@ export const retryOrFail = internalMutation({
     detail: v.string(),
     retryable: v.boolean(),
     attempt: v.optional(v.string()),
+    observedStartedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item || item.status === "ready") return;
+    if (!item || ["ready", "deleting"].includes(item.status)) return;
     // A failure report from a superseded attempt says nothing about the
     // current one.
     if (args.attempt !== undefined && item.attemptToken && args.attempt !== item.attemptToken) {
+      return;
+    }
+    if (
+      args.observedStartedAt !== undefined &&
+      item.extractionStartedAt !== args.observedStartedAt
+    ) {
       return;
     }
     await retryOrFailItem(ctx, item, args.detail, args.retryable);
@@ -530,7 +548,7 @@ export const markFailed = internalMutation({
   args: { itemId: v.id("items"), detail: v.string() },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item || item.status === "ready") return;
+    if (!item || ["ready", "deleting"].includes(item.status)) return;
     const failure = describeFailure(args.detail);
     await ctx.db.patch(args.itemId, {
       status: "failed",
