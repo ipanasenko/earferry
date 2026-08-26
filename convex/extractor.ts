@@ -122,7 +122,7 @@ export async function probeVideo(
 export async function startExtraction(
   baseUrl: string,
   secret: string,
-  job: { itemId: string; url: string },
+  job: { itemId: string; url: string; attemptToken: string },
 ): Promise<void> {
   const response = await extractorFetch(baseUrl, secret, "/extract", {
     method: "POST",
@@ -192,10 +192,14 @@ export const run = internalAction({
         return;
       }
 
-      await ctx.runMutation(internal.items.beginExtraction, { itemId: args.itemId });
+      const attemptToken = await ctx.runMutation(internal.items.beginExtraction, {
+        itemId: args.itemId,
+      });
+      if (!attemptToken) return;
       await startExtraction(baseUrl, secret, {
         itemId: args.itemId,
         url: item.url,
+        attemptToken,
       });
     } catch (error) {
       const detail = String((error as Error)?.message ?? error).slice(0, 500);

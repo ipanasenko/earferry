@@ -83,6 +83,7 @@ export const add = mutation({
           phase: undefined,
           error: undefined,
           attempts: 0,
+          attemptToken: undefined,
           r2Key: undefined,
           sizeBytes: undefined,
           mediaUrl: undefined,
@@ -139,6 +140,7 @@ export const retry = mutation({
       phase: undefined,
       error: undefined,
       attempts: 0,
+      attemptToken: undefined,
     });
     await scheduleExtraction(ctx, item._id);
   },
@@ -154,6 +156,7 @@ export const queueAfterCancel = internalMutation({
       phase: "Starting a fresh extraction",
       error: undefined,
       attempts: 0,
+      attemptToken: undefined,
       extractionStartedAt: undefined,
       lastHeartbeatAt: undefined,
     });
@@ -261,17 +264,20 @@ export const beginExtraction = internalMutation({
   args: { itemId: v.id("items") },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item || item.status !== "probing") return;
+    if (!item || item.status !== "probing") return null;
     const now = Date.now();
+    const attemptToken = crypto.randomUUID();
     await ctx.db.patch(args.itemId, {
       status: "extracting",
       phase: "Starting audio extraction",
+      attemptToken,
       extractionStartedAt: now,
       lastHeartbeatAt: now,
     });
     await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.extractor.recover, {
       itemId: args.itemId,
     });
+    return attemptToken;
   },
 });
 
@@ -280,10 +286,12 @@ export const recordHeartbeat = internalMutation({
     itemId: v.id("items"),
     status: v.union(v.literal("extracting"), v.literal("uploading")),
     phase: v.optional(v.string()),
+    attempt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || !["extracting", "uploading"].includes(item.status)) return false;
+    if (item.attemptToken && args.attempt !== item.attemptToken) return false;
     await ctx.db.patch(args.itemId, {
       status: args.status,
       phase: args.phase ?? item.phase,
@@ -307,6 +315,7 @@ export const restartStalledExtraction = internalMutation({
     await ctx.db.patch(args.itemId, {
       status: "queued",
       phase: "Extraction stopped responding. Trying again",
+      attemptToken: undefined,
       extractionStartedAt: undefined,
       lastHeartbeatAt: undefined,
     });
@@ -344,16 +353,21 @@ export const markReady = internalMutation({
     durationSeconds: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
     artworkUrl: v.optional(v.string()),
+    attempt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item) return;
+    if (!item) return false;
+    // A completion from a superseded attempt must not publish; the Worker
+    // deletes its R2 objects when this answers with a rejection.
+    if (item.attemptToken && args.attempt !== item.attemptToken) return false;
     const expiresAt = Date.now() + AUDIO_RETENTION_MS;
     await ctx.db.patch(args.itemId, {
       status: "ready",
       phase: undefined,
       error: undefined,
       attempts: 0,
+      attemptToken: undefined,
       extractionStartedAt: undefined,
       lastHeartbeatAt: undefined,
       r2Key: args.r2Key,
@@ -369,6 +383,7 @@ export const markReady = internalMutation({
       expiresAt,
     });
     await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });
+    return true;
   },
 });
 
@@ -407,6 +422,7 @@ async function retryOrFailItem(
       attempts: attempts + 1,
       phase: `Extraction failed, retrying (attempt ${attempts + 2})`,
       error: undefined,
+      attemptToken: undefined,
       extractionStartedAt: undefined,
       lastHeartbeatAt: undefined,
     });
@@ -418,16 +434,27 @@ async function retryOrFailItem(
     status: "failed",
     phase: undefined,
     error: `${failure.message}: ${detail}`.slice(0, 500),
+    attemptToken: undefined,
     extractionStartedAt: undefined,
     lastHeartbeatAt: undefined,
   });
 }
 
 export const retryOrFail = internalMutation({
-  args: { itemId: v.id("items"), detail: v.string(), retryable: v.boolean() },
+  args: {
+    itemId: v.id("items"),
+    detail: v.string(),
+    retryable: v.boolean(),
+    attempt: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || item.status === "ready") return;
+    // A failure report from a superseded attempt says nothing about the
+    // current one.
+    if (args.attempt !== undefined && item.attemptToken && args.attempt !== item.attemptToken) {
+      return;
+    }
     await retryOrFailItem(ctx, item, args.detail, args.retryable);
   },
 });
@@ -465,6 +492,7 @@ export const markFailed = internalMutation({
       status: "failed",
       phase: undefined,
       error: `${failure.message}: ${args.detail}`.slice(0, 500),
+      attemptToken: undefined,
       extractionStartedAt: undefined,
       lastHeartbeatAt: undefined,
     });

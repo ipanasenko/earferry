@@ -72,6 +72,7 @@ http.route({
       description?: string;
       publishedAt?: number;
       artwork?: boolean;
+      attempt?: string;
     }>(request);
     if (!body?.itemId) return json({ error: "itemId is required" }, 400);
     const itemId = body.itemId as Id<"items">;
@@ -86,8 +87,9 @@ http.route({
     const artworkUrl = body.artwork
       ? await signedArtworkUrl(found.user.feedToken, itemId)
       : undefined;
-    await ctx.runMutation(internal.items.markReady, {
+    const published = await ctx.runMutation(internal.items.markReady, {
       itemId,
+      attempt: typeof body.attempt === "string" ? body.attempt : undefined,
       r2Key: `items/${itemId}.mp3`,
       sizeBytes: Number(body.sizeBytes) > 0 ? Number(body.sizeBytes) : undefined,
       durationSeconds: Number(body.durationSeconds) > 0 ? Number(body.durationSeconds) : undefined,
@@ -98,6 +100,9 @@ http.route({
       artworkUrl,
       mediaUrl,
     });
+    // A rejected completion makes the Worker delete the R2 objects the stale
+    // attempt just published under this item's key.
+    if (!published) return json({ error: "Extraction attempt is no longer active" }, 409);
     await capture("extraction_completed", found.user.clerkId, {
       item_id: itemId,
       video_id: found.item.videoId,
@@ -117,6 +122,7 @@ http.route({
       error?: string;
       detail?: string;
       retryable?: boolean;
+      attempt?: string;
     }>(request);
     if (!body?.itemId) return json({ error: "itemId is required" }, 400);
 
@@ -126,6 +132,7 @@ http.route({
       itemId: body.itemId as Id<"items">,
       detail: detail.slice(0, 500),
       retryable: body.retryable === true,
+      attempt: typeof body.attempt === "string" ? body.attempt : undefined,
     });
     const found = await ctx
       .runQuery(internal.items.itemWithUser, { itemId: body.itemId as Id<"items"> })
@@ -144,15 +151,21 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     if (!internalAuthorized(request)) return json({ error: "Unauthorized" }, 401);
-    const body = await readBody<{ itemId?: string; phase?: string; elapsedSeconds?: number }>(
-      request,
-    );
+    const body = await readBody<{
+      itemId?: string;
+      phase?: string;
+      elapsedSeconds?: number;
+      attempt?: string;
+    }>(request);
     if (!body?.itemId) return json({ error: "itemId is required" }, 400);
     const itemId = body.itemId as Id<"items">;
 
     const item = await ctx.runQuery(internal.items.get, { itemId }).catch(() => null);
     if (!item) return json({ error: "Item not found" }, 404);
     if (!["extracting", "uploading"].includes(item.status)) {
+      return json({ error: "Extraction attempt is no longer active" }, 409);
+    }
+    if (item.attemptToken && body.attempt !== item.attemptToken) {
       return json({ error: "Extraction attempt is no longer active" }, 409);
     }
 
@@ -166,6 +179,7 @@ http.route({
             : undefined;
     await ctx.runMutation(internal.items.recordHeartbeat, {
       itemId,
+      attempt: typeof body.attempt === "string" ? body.attempt : undefined,
       status:
         body.phase === "uploading" || body.phase === "finalizing" ? "uploading" : "extracting",
       phase,
