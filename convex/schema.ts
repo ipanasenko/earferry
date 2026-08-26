@@ -46,5 +46,6 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
   })
     .index("by_user", ["userId", "position"])
-    .index("by_user_video", ["userId", "videoId"]),
+    .index("by_user_video", ["userId", "videoId"])
+    .index("by_status_expires", ["status", "expiresAt"]),
 });
