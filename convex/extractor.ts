@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { isWaitingLiveStatus, publishedDate } from "./domain";
+import { isWaitingLiveStatus, publishedDate, recoveryDelay } from "./domain";
 
 // HTTP contract of the earferry-extractor Worker (see docs/ARCHITECTURE.md,
 // "Extractor Worker contract"). All endpoints take
@@ -160,11 +160,7 @@ export const run = internalAction({
         return;
       }
 
-      await ctx.runMutation(internal.items.setStatus, {
-        itemId: args.itemId,
-        status: "extracting",
-        phase: "Starting audio extraction",
-      });
+      await ctx.runMutation(internal.items.beginExtraction, { itemId: args.itemId });
       await startExtraction(baseUrl, secret, {
         itemId: args.itemId,
         url: item.url,
@@ -185,6 +181,36 @@ export const run = internalAction({
       }
       await ctx.runMutation(internal.items.markFailed, { itemId: args.itemId, detail });
     }
+  },
+});
+
+export const recover = internalAction({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
+    if (!item || !["extracting", "uploading"].includes(item.status)) return;
+
+    const observedHeartbeatAt = item.lastHeartbeatAt ?? item.extractionStartedAt;
+    if (!observedHeartbeatAt) return;
+    const delay = recoveryDelay(observedHeartbeatAt);
+    if (delay > 0) {
+      await ctx.scheduler.runAfter(delay, internal.extractor.recover, { itemId: args.itemId });
+      return;
+    }
+
+    const config = extractorConfig();
+    if (config) {
+      try {
+        await cancelJob(config.baseUrl, config.secret, args.itemId);
+      } catch {
+        // The guarded mutation below still returns the item to the queue. If
+        // the old job remains active, the normal busy retry waits for it.
+      }
+    }
+    await ctx.runMutation(internal.items.restartStalledExtraction, {
+      itemId: args.itemId,
+      observedHeartbeatAt,
+    });
   },
 });
 

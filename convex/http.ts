@@ -156,13 +156,12 @@ http.route({
           : body.phase === "finalizing"
             ? "Finalizing MP3"
             : undefined;
-    if (phase) {
-      await ctx.runMutation(internal.items.setStatus, {
-        itemId,
-        status: body.phase === "downloading" ? "extracting" : "uploading",
-        phase,
-      });
-    }
+    await ctx.runMutation(internal.items.recordHeartbeat, {
+      itemId,
+      status:
+        body.phase === "uploading" || body.phase === "finalizing" ? "uploading" : "extracting",
+      phase,
+    });
     return json({ alive: true });
   }),
 });

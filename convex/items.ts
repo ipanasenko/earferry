@@ -8,7 +8,12 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { normalizeYouTubeUrl, youtubeVideoId, describeFailure } from "./domain";
+import {
+  EXTRACTION_LEASE_MS,
+  normalizeYouTubeUrl,
+  youtubeVideoId,
+  describeFailure,
+} from "./domain";
 import { currentUser, getOrCreateUser, requirePaidEntitlement } from "./users";
 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
@@ -174,6 +179,64 @@ export const setStatus = internalMutation({
   },
 });
 
+export const beginExtraction = internalMutation({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.status !== "probing") return;
+    const now = Date.now();
+    await ctx.db.patch(args.itemId, {
+      status: "extracting",
+      phase: "Starting audio extraction",
+      extractionStartedAt: now,
+      lastHeartbeatAt: now,
+    });
+    await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.extractor.recover, {
+      itemId: args.itemId,
+    });
+  },
+});
+
+export const recordHeartbeat = internalMutation({
+  args: {
+    itemId: v.id("items"),
+    status: v.union(v.literal("extracting"), v.literal("uploading")),
+    phase: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || !["extracting", "uploading"].includes(item.status)) return false;
+    await ctx.db.patch(args.itemId, {
+      status: args.status,
+      phase: args.phase ?? item.phase,
+      lastHeartbeatAt: Date.now(),
+    });
+    return true;
+  },
+});
+
+export const restartStalledExtraction = internalMutation({
+  args: { itemId: v.id("items"), observedHeartbeatAt: v.number() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (
+      !item ||
+      !["extracting", "uploading"].includes(item.status) ||
+      item.lastHeartbeatAt !== args.observedHeartbeatAt
+    ) {
+      return false;
+    }
+    await ctx.db.patch(args.itemId, {
+      status: "queued",
+      phase: "Extraction stopped responding. Trying again",
+      extractionStartedAt: undefined,
+      lastHeartbeatAt: undefined,
+    });
+    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: args.itemId });
+    return true;
+  },
+});
+
 export const recordProbe = internalMutation({
   args: {
     itemId: v.id("items"),
@@ -211,6 +274,8 @@ export const markReady = internalMutation({
       phase: undefined,
       error: undefined,
       attempts: 0,
+      extractionStartedAt: undefined,
+      lastHeartbeatAt: undefined,
       r2Key: args.r2Key,
       sizeBytes: args.sizeBytes,
       mediaUrl: args.mediaUrl,
@@ -242,6 +307,8 @@ export const retryOrFail = internalMutation({
         attempts: attempts + 1,
         phase: `Extraction failed, retrying (attempt ${attempts + 2})`,
         error: undefined,
+        extractionStartedAt: undefined,
+        lastHeartbeatAt: undefined,
       });
       await ctx.scheduler.runAfter(delay, internal.extractor.run, { itemId: args.itemId });
       return;
@@ -251,6 +318,8 @@ export const retryOrFail = internalMutation({
       status: "failed",
       phase: undefined,
       error: `${failure.message}: ${args.detail}`.slice(0, 500),
+      extractionStartedAt: undefined,
+      lastHeartbeatAt: undefined,
     });
   },
 });
@@ -278,6 +347,8 @@ export const markFailed = internalMutation({
       status: "failed",
       phase: undefined,
       error: `${failure.message}: ${args.detail}`.slice(0, 500),
+      extractionStartedAt: undefined,
+      lastHeartbeatAt: undefined,
     });
   },
 });
