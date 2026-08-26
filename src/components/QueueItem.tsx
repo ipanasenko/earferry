@@ -150,12 +150,8 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
             <PlayIcon stroke="var(--color-text-muted)" />
           </IconButton>
         ) : ui === "failed" ? (
-          <IconButton
-            title="Retry extraction"
-            onClick={() => void retry({ id: item._id })}
-            variant="accent"
-          >
-            <RetryIcon />
+          <IconButton title="Retry extraction" onClick={() => void retry({ id: item._id })}>
+            <RetryIcon stroke="var(--color-text-muted)" />
           </IconButton>
         ) : (
           // Not ready yet: a disabled play button keeps the action lanes
