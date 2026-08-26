@@ -23,7 +23,9 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
   container calls back with a multipart upload sequence
   (`POST {callbackBase}`, `PUT .../{uploadId}/{part}`, `POST .../complete`,
   `POST .../fail`, `POST .../heartbeat`).
-- Storage: R2 bucket `earferry-audio` in the earferry Cloudflare account.
+- Storage: R2 bucket `earferry-audio` in the earferry Cloudflare account
+  (30-day lifecycle). Stores the extracted MP3s and the square episode
+  artwork generated during extraction.
 - Hosting: frontend as Cloudflare static assets in the earferry account;
   Convex Cloud for the backend.
 

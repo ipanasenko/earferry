@@ -1,32 +1,26 @@
-# React + TypeScript + Vite
+# earferry
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+YouTube for your ears, delivered to your podcast app. Save any YouTube video
+and earferry ferries the audio into a private podcast feed you can play
+anywhere.
 
-Currently, two official plugins are available:
+Public multi-user version of the private "listen-later" project. See
+`docs/ARCHITECTURE.md` for the stack and design decisions.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Development
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+bun install
+bunx convex dev   # backend (Convex dev deployment)
+bun run dev       # frontend (Vite)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Environment variables live in `.env.local` (Clerk keys via `clerk env pull`,
+Convex URL via `bunx convex dev`).
+
+## Stack
+
+- React 19 + TypeScript + Tailwind 4 (Vite, Bun)
+- Convex (backend), Clerk (auth + billing)
+- Cloudflare: Workers static assets (frontend), Containers (shared extractor),
+  R2 (`earferry-audio` — extracted MP3s and squared episode artwork)
