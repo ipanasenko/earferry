@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { SignedIn, SignedOut, SignInButton, useClerk } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import { useQuery } from "convex/react";
 import { api } from "../lib/api";
 import { LogoMark } from "./icons";
@@ -57,7 +57,6 @@ function BookmarkletButton() {
 }
 
 export function Header() {
-  const { signOut } = useClerk();
   return (
     <header className="flex items-center justify-between gap-4 py-7.5">
       <Link to="/" className="flex items-center gap-2.75">
@@ -70,13 +69,13 @@ export function Header() {
           <span className="hidden sm:block">
             <BookmarkletButton />
           </span>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="flex items-center h-9.5 px-4.5 rounded-pill [box-shadow:#10141814_0px_1px_3px] bg-background font-semibold text-text-muted text-sm/4 cursor-pointer hover:text-text transition-colors"
-          >
-            Log out
-          </button>
+          <UserButton
+            appearance={{
+              elements: {
+                userButtonAvatarBox: "w-9.5 h-9.5 [box-shadow:#1B3A5B14_0px_1px_2px]",
+              },
+            }}
+          />
         </div>
       </SignedIn>
       <SignedOut>
