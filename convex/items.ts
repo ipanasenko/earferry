@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
   internalMutation,
   internalQuery,
@@ -31,7 +31,7 @@ async function topPosition(ctx: MutationCtx, userId: Id<"users">): Promise<numbe
 async function ownedItem(ctx: MutationCtx, id: Id<"items">): Promise<Doc<"items">> {
   const user = await getOrCreateUser(ctx);
   const item = await ctx.db.get(id);
-  if (!item || item.userId !== user._id) throw new Error("Item not found");
+  if (!item || item.userId !== user._id) throw new ConvexError("Item not found");
   return item;
 }
 
@@ -70,7 +70,7 @@ export const add = mutation({
     if (existing) {
       const position = await topPosition(ctx, user._id);
       if (existing.status === "deleting") {
-        throw new Error("This video is still being deleted. Try again shortly");
+        throw new ConvexError("This video is still being deleted. Try again shortly");
       }
       if (existing.status === "failed" || isExpiredReady(existing, now)) {
         // A re-added failed item gets a fresh attempt, not just a new spot.
@@ -121,7 +121,7 @@ export const retry = mutation({
     await requirePaidEntitlement(ctx);
     const item = await ownedItem(ctx, args.id);
     if (!["failed", "waiting", "ready", "extracting", "uploading"].includes(item.status)) {
-      throw new Error("This item cannot be retried yet");
+      throw new ConvexError("This item cannot be retried yet");
     }
     if (["extracting", "uploading"].includes(item.status)) {
       await ctx.db.patch(item._id, { phase: "Cancelling the current extraction" });

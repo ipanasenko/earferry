@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
@@ -25,9 +26,9 @@ export function hasPlan(planClaim: unknown, plan: string): boolean {
 
 export async function requirePaidEntitlement(ctx: MutationCtx): Promise<void> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Not signed in");
+  if (!identity) throw new ConvexError("You are signed out. Sign in and try again");
   if (!hasPlan(identity.pla, PAID_PLAN)) {
-    throw new Error("A Ferry subscription is required");
+    throw new ConvexError("An active Ferry subscription is required");
   }
 }
 
@@ -44,7 +45,7 @@ export async function currentUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
 // time an authenticated person touches the queue.
 export async function getOrCreateUser(ctx: MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Not signed in");
+  if (!identity) throw new ConvexError("You are signed out. Sign in and try again");
   const existing = await ctx.db
     .query("users")
     .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
@@ -71,12 +72,12 @@ export const rotateFeedToken = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not signed in");
+    if (!identity) throw new ConvexError("You are signed out. Sign in and try again");
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
-    if (!user) throw new Error("Feed not found");
+    if (!user) throw new ConvexError("Feed not found");
 
     const feedToken = randomFeedToken();
     await ctx.db.patch(user._id, { feedToken });
