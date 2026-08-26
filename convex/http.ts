@@ -3,6 +3,7 @@ import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { buildFeed, signedArtworkUrl, signedMediaUrl } from "./feed";
+import { feedBaseUrl } from "./users";
 import { capture } from "./analytics";
 
 const http = httpRouter();
@@ -34,7 +35,9 @@ http.route({
 
     await capture("feed_fetched", user.clerkId);
     const items = await ctx.runQuery(internal.items.readyItemsForUser, { userId: user._id });
-    const xml = await buildFeed(items, url.origin, user.feedToken);
+    // feedBaseUrl, not url.origin: behind the site's /feed/* proxy the request
+    // origin is still *.convex.site, which would leak into the self-link.
+    const xml = await buildFeed(items, feedBaseUrl(), user.feedToken);
     return new Response(xml, {
       headers: {
         "content-type": "application/rss+xml; charset=utf-8",

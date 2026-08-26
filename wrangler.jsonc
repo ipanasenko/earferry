@@ -3,8 +3,13 @@
   "name": "earferry",
   "compatibility_date": "2026-08-01",
   "account_id": "89f3c0dd5d80dc28486cbfbb753087fe",
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/feed/*"]
+  },
+  "vars": {
+    "CONVEX_SITE_URL": "https://perceptive-hare-749.convex.site"
   }
 }
