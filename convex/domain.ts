@@ -84,6 +84,21 @@ export function describeFailure(detail: unknown): { permanent: boolean; message:
   return { permanent: false, message: "Extraction did not finish. Trying again shortly" };
 }
 
+// Retry pacing for retryable extraction failures. The cumulative waits
+// (5 / 15 / 35 minutes) are sized to straddle YouTube's measured ~20-minute
+// bot-check window instead of landing every attempt inside it. Jitter spreads
+// simultaneous refusals so they do not all come back at the same moment.
+// Mirrors lib/retry.js in the earferry-extractor repo.
+export const MAX_AUTO_RETRIES = 3;
+const RETRY_DELAYS_MS = [5 * 60_000, 10 * 60_000, 20 * 60_000];
+const RETRY_JITTER = 0.4;
+
+export function retryDelayMs(attempts: number, jitter = Math.random()): number {
+  const step = Math.min(Math.max(attempts, 0), RETRY_DELAYS_MS.length - 1);
+  const spread = 1 + (jitter - 0.5) * RETRY_JITTER;
+  return Math.round(RETRY_DELAYS_MS[step] * spread);
+}
+
 export function publishedDate(metadata: {
   timestamp?: number;
   release_timestamp?: number;
