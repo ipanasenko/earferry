@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../lib/api";
 import { track } from "../lib/analytics";
+import { errorMessage } from "../lib/errors";
 
 // Best-effort video id for analytics; the backend does the real parsing.
 function videoIdForAnalytics(url: string): string | undefined {
@@ -25,9 +26,10 @@ export function AddForm() {
       await add({ url: trimmed });
       track("item_added", { video_id: videoIdForAnalytics(trimmed) });
       setUrl("");
-    } catch {
-      track("item_add_failed", { reason: "invalid_url" });
-      setError("That doesn't look like a YouTube link EarFerry can carry.");
+    } catch (err) {
+      const message = errorMessage(err, "That didn't work. Check the link and try again.");
+      track("item_add_failed", { reason: message });
+      setError(message);
     } finally {
       setPending(false);
     }
@@ -42,7 +44,10 @@ export function AddForm() {
         <input
           type="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(e) => {
+            setUrl(e.target.value);
+            setError(null);
+          }}
           placeholder="https://youtube.com/watch?v=…"
           aria-label="YouTube URL"
           className="grow min-w-0 bg-transparent outline-none text-text placeholder:text-text-muted text-base/4.5"

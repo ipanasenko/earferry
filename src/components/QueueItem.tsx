@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import { api, type QueueItemDoc } from "../lib/api";
 import { track } from "../lib/analytics";
+import { errorMessage } from "../lib/errors";
 import {
   CancelIcon,
   ConfirmIcon,
@@ -142,6 +143,7 @@ function IconButton({
 export function QueueItem({ item }: { item: QueueItemDoc }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const remove = useMutation(api.items.remove);
   const retry = useMutation(api.items.retry);
   const ui = uiStatus(item.status);
@@ -150,7 +152,10 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
 
   function retryItem() {
     track("item_retried");
-    void retry({ id: item._id });
+    setActionError(null);
+    void retry({ id: item._id }).catch((err) =>
+      setActionError(errorMessage(err, "The retry didn't go through. Try again")),
+    );
   }
 
   return (
@@ -191,8 +196,14 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
                     disabled={deleting}
                     onClick={() => {
                       setDeleting(true);
+                      setActionError(null);
                       track("item_removed");
-                      void remove({ id: item._id }).catch(() => setDeleting(false));
+                      void remove({ id: item._id }).catch((err) => {
+                        setDeleting(false);
+                        setActionError(
+                          errorMessage(err, "The delete didn't go through. Try again"),
+                        );
+                      });
                     }}
                   >
                     <ConfirmIcon />
@@ -252,6 +263,9 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
           </div>
         </div>
       </div>
+      {actionError ? (
+        <div className="px-3.5 pb-3.5 sm:px-5.5 sm:pb-4 text-sm/4 text-danger">{actionError}</div>
+      ) : null}
     </div>
   );
 }
