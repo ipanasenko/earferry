@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { isWaitingLiveStatus, publishedDate, recoveryDelay } from "./domain";
 
 // HTTP contract of the earferry-extractor Worker (see docs/ARCHITECTURE.md,
@@ -31,6 +32,21 @@ export type ExtractorHealth = {
   busy: boolean;
   job: unknown;
   tokenProvider: unknown;
+};
+
+type DiagnosticsResult = {
+  serverTime: number;
+  item: {
+    id: string;
+    status: string;
+    phase?: string;
+    error?: string;
+    attempts: number;
+    extractionStartedAt?: number;
+    lastHeartbeatAt?: number;
+    recoveryAt?: number;
+  };
+  extractor: ExtractorHealth | { ok: false; error: string };
 };
 
 function extractorConfig(): { baseUrl: string; secret: string } | null {
@@ -243,7 +259,7 @@ export const cleanupExpired = internalAction({
   handler: async (ctx) => {
     const items = await ctx.runQuery(internal.items.expiredReadyItems, { now: Date.now() });
     await Promise.all(
-      items.map((item) =>
+      items.map((item: Doc<"items">) =>
         ctx.scheduler.runAfter(0, internal.extractor.expire, { itemId: item._id }),
       ),
     );
@@ -274,6 +290,62 @@ export const cancel = internalAction({
     } catch {
       // The Worker recycles jobs on its own; a failed cancel is not fatal.
     }
+  },
+});
+
+export const restart = internalAction({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const config = extractorConfig();
+    if (config) {
+      try {
+        await cancelJob(config.baseUrl, config.secret, args.itemId);
+      } catch {
+        await ctx.scheduler.runAfter(60_000, internal.extractor.restart, args);
+        return;
+      }
+    }
+    await ctx.runMutation(internal.items.queueAfterCancel, { itemId: args.itemId });
+  },
+});
+
+export const diagnostics = action({
+  args: { id: v.id("items") },
+  handler: async (ctx, args): Promise<DiagnosticsResult> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not signed in");
+    const item: Doc<"items"> | null = await ctx.runQuery(internal.items.ownedItemForDiagnostics, {
+      itemId: args.id,
+      clerkId: identity.subject,
+    });
+    if (!item) throw new Error("Item not found");
+
+    const config = extractorConfig();
+    let extractor: ExtractorHealth | { ok: false; error: string } = {
+      ok: false,
+      error: "Extractor not configured",
+    };
+    if (config) {
+      try {
+        extractor = await health(config.baseUrl, config.secret);
+      } catch (error) {
+        extractor = { ok: false, error: String((error as Error)?.message ?? error) };
+      }
+    }
+    return {
+      serverTime: Date.now(),
+      item: {
+        id: item._id,
+        status: item.status,
+        phase: item.phase,
+        error: item.error,
+        attempts: item.attempts ?? 0,
+        extractionStartedAt: item.extractionStartedAt,
+        lastHeartbeatAt: item.lastHeartbeatAt,
+        recoveryAt: item.lastHeartbeatAt ? item.lastHeartbeatAt + 5 * 60_000 : undefined,
+      },
+      extractor,
+    };
   },
 });
 
