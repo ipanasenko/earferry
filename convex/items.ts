@@ -283,6 +283,7 @@ export const markReady = internalMutation({
     description: v.optional(v.string()),
     durationSeconds: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
+    artworkUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
@@ -304,6 +305,7 @@ export const markReady = internalMutation({
       description: args.description ?? item.description,
       durationSeconds: args.durationSeconds ?? item.durationSeconds,
       publishedAt: args.publishedAt ?? item.publishedAt,
+      artworkUrl: args.artworkUrl ?? item.artworkUrl,
       expiresAt,
     });
     await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });

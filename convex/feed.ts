@@ -37,6 +37,11 @@ export async function signedMediaUrl(feedToken: string, itemId: string): Promise
   return `${mediaBaseUrl()}/media/${encodeURIComponent(feedToken)}/${encodeURIComponent(itemId)}.mp3?s=${sig}`;
 }
 
+export async function signedArtworkUrl(feedToken: string, itemId: string): Promise<string> {
+  const sig = await signMediaPath(feedToken, itemId);
+  return `${mediaBaseUrl()}/media/${encodeURIComponent(feedToken)}/${encodeURIComponent(itemId)}.jpg?s=${sig}`;
+}
+
 function xml(value: unknown = ""): string {
   return String(value)
     .replaceAll("&", "&amp;")
