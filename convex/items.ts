@@ -10,6 +10,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
   EXTRACTION_LEASE_MS,
+  isExpiredReady,
   normalizeYouTubeUrl,
   youtubeVideoId,
   describeFailure,
@@ -149,8 +150,17 @@ export const readyItemsForUser = internalQuery({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .order("desc")
       .collect();
-    return items.filter((item) => item.status === "ready");
+    return items.filter((item) => item.status === "ready" && !isExpiredReady(item));
   },
+});
+
+export const expiredReadyItems = internalQuery({
+  args: { now: v.number() },
+  handler: (ctx, args) =>
+    ctx.db
+      .query("items")
+      .withIndex("by_status_expires", (q) => q.eq("status", "ready").lte("expiresAt", args.now))
+      .take(50),
 });
 
 export const setStatus = internalMutation({
@@ -269,6 +279,7 @@ export const markReady = internalMutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item) return;
+    const expiresAt = Date.now() + AUDIO_RETENTION_MS;
     await ctx.db.patch(args.itemId, {
       status: "ready",
       phase: undefined,
@@ -285,8 +296,19 @@ export const markReady = internalMutation({
       description: args.description ?? item.description,
       durationSeconds: args.durationSeconds ?? item.durationSeconds,
       publishedAt: args.publishedAt ?? item.publishedAt,
-      expiresAt: Date.now() + AUDIO_RETENTION_MS,
+      expiresAt,
     });
+    await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });
+  },
+});
+
+export const deleteExpired = internalMutation({
+  args: { itemId: v.id("items"), observedExpiresAt: v.number() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.expiresAt !== args.observedExpiresAt || !isExpiredReady(item)) return false;
+    await ctx.db.delete(args.itemId);
+    return true;
   },
 });
 

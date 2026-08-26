@@ -14,6 +14,13 @@ export function recoveryDelay(lastHeartbeatAt: number, now = Date.now()): number
   return Math.max(0, lastHeartbeatAt + EXTRACTION_LEASE_MS - now);
 }
 
+export function isExpiredReady(
+  item: { status: string; expiresAt?: number },
+  now = Date.now(),
+): boolean {
+  return item.status === "ready" && typeof item.expiresAt === "number" && item.expiresAt <= now;
+}
+
 export function normalizeYouTubeUrl(value: unknown): string {
   if (typeof value !== "string" || value.length > 2_048) {
     throw new Error("Enter a valid YouTube URL.");

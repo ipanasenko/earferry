@@ -214,6 +214,42 @@ export const recover = internalAction({
   },
 });
 
+export const expire = internalAction({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
+    if (!item || item.status !== "ready" || !item.expiresAt || item.expiresAt > Date.now()) return;
+
+    const config = extractorConfig();
+    if (!config) {
+      await ctx.scheduler.runAfter(5 * 60_000, internal.extractor.expire, args);
+      return;
+    }
+    try {
+      await cancelJob(config.baseUrl, config.secret, args.itemId);
+    } catch {
+      await ctx.scheduler.runAfter(5 * 60_000, internal.extractor.expire, args);
+      return;
+    }
+    await ctx.runMutation(internal.items.deleteExpired, {
+      itemId: args.itemId,
+      observedExpiresAt: item.expiresAt,
+    });
+  },
+});
+
+export const cleanupExpired = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const items = await ctx.runQuery(internal.items.expiredReadyItems, { now: Date.now() });
+    await Promise.all(
+      items.map((item) =>
+        ctx.scheduler.runAfter(0, internal.extractor.expire, { itemId: item._id }),
+      ),
+    );
+  },
+});
+
 // A waiting item (premiere/live) goes back through the probe.
 export const recheck = internalAction({
   args: { itemId: v.id("items") },
