@@ -4,7 +4,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-reac
 import { useQuery } from "convex/react";
 import { api } from "../lib/api";
 import { track } from "../lib/analytics";
-import { LogoMark } from "./icons";
+import { ConfirmIcon, FeedIcon, LogoMark } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 function pillButtonClass(extra = "") {
@@ -25,15 +25,27 @@ function FeedUrlButton() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={copy}
-      disabled={!feedUrl}
-      className={pillButtonClass("disabled:opacity-50")}
-      title="Copy your private podcast feed URL"
-    >
-      {copied ? "Copied ✓" : "Feed URL ⎘"}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={copy}
+        disabled={!feedUrl}
+        className={pillButtonClass("hidden sm:flex disabled:opacity-50")}
+        title="Copy your private podcast feed URL"
+      >
+        {copied ? "Copied ✓" : "Feed URL ⎘"}
+      </button>
+      <button
+        type="button"
+        onClick={copy}
+        disabled={!feedUrl}
+        aria-label="Copy your private podcast feed URL"
+        title="Copy your private podcast feed URL"
+        className="sm:hidden w-9.5 h-9.5 flex items-center justify-center rounded-pill shadow-pill bg-background cursor-pointer disabled:opacity-50"
+      >
+        {copied ? <ConfirmIcon stroke="var(--color-success)" /> : <FeedIcon />}
+      </button>
+    </>
   );
 }
 
@@ -60,13 +72,20 @@ function BookmarkletButton() {
 
 export function Header() {
   return (
-    <header className="flex items-center justify-between gap-4 py-7.5">
-      <Link to="/" className="flex items-center gap-2.75">
-        <LogoMark size={38} />
-        <span className="font-extrabold tracking-tight text-ink text-xl/8.5">earferry</span>
+    <header className="flex items-center justify-between gap-4 py-5 sm:py-7.5">
+      <Link to="/" className="flex items-center gap-2.25 sm:gap-2.75">
+        <span className="sm:hidden flex">
+          <LogoMark size={32} />
+        </span>
+        <span className="hidden sm:flex">
+          <LogoMark size={38} />
+        </span>
+        <span className="font-extrabold tracking-tight text-ink text-[20px]/6.5 sm:text-xl/8.5">
+          earferry
+        </span>
       </Link>
       <SignedIn>
-        <div className="flex flex-wrap justify-end gap-2.5">
+        <div className="flex items-center justify-end gap-2.5">
           <FeedUrlButton />
           <span className="hidden sm:block">
             <BookmarkletButton />
