@@ -130,6 +130,26 @@ export const requeue = internalMutation({
   },
 });
 
+// A ready item whose stored audio turned out to be gone goes back through
+// extraction. Guarded on the observed expiry so a concurrent re-extract or
+// delete is left alone.
+export const requeueMissingAudio = internalMutation({
+  args: { itemId: v.id("items"), observedExpiresAt: v.number() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.status !== "ready" || item.expiresAt !== args.observedExpiresAt) return;
+    await enqueueItem(ctx, args.itemId, {
+      phase: "Stored audio was missing. Extracting again",
+      error: undefined,
+      attempts: 0,
+      r2Key: undefined,
+      sizeBytes: undefined,
+      mediaUrl: undefined,
+      expiresAt: undefined,
+    });
+  },
+});
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -178,6 +198,12 @@ export const add = mutation({
         });
       } else {
         await ctx.db.patch(existing._id, { position, addedAt: now });
+        if (existing.status === "ready") {
+          // Reusing stored audio: make sure it is actually still there.
+          await ctx.scheduler.runAfter(0, internal.extractor.verifyAudio, {
+            itemId: existing._id,
+          });
+        }
       }
       return existing._id;
     }
