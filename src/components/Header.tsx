@@ -60,7 +60,13 @@ function FeedUrlButton() {
 }
 
 function BookmarkletButton() {
-  const code = `javascript:location.href='${window.location.origin}/?add='+encodeURIComponent(location.href)`;
+  const code =
+    "javascript:(()=>{" +
+    'const a=location.hostname.includes("inoreader")?document.querySelector("a.article_title_link"):null;' +
+    "const u=a&&a.href?a.href:location.href;" +
+    `window.open("${window.location.origin}/?add="+encodeURIComponent(u),"_blank",` +
+    '"scrollbars=1,status=0,resizable=1,location=0,toolbar=0,width=700,height=800");' +
+    "void 0})()";
   return (
     <Tooltip
       label="Drag me to your bookmarks bar"
