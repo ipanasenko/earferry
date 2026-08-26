@@ -1,4 +1,4 @@
-import { query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
 const PAID_PLAN = "ferry";
@@ -64,5 +64,27 @@ export const me = query({
     const user = await currentUser(ctx);
     if (!user) return { feedUrl: null };
     return { feedUrl: `${feedBaseUrl()}/feed/${encodeURIComponent(user.feedToken)}` };
+  },
+});
+
+export const rotateFeedToken = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not signed in");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("Feed not found");
+
+    const feedToken = randomFeedToken();
+    await ctx.db.patch(user._id, { feedToken });
+    const items = await ctx.db
+      .query("items")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    await Promise.all(items.map((item) => ctx.db.patch(item._id, { mediaUrl: undefined })));
+    return { feedUrl: `${feedBaseUrl()}/feed/${encodeURIComponent(feedToken)}` };
   },
 });
