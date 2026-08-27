@@ -21,7 +21,8 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
   wrapper Worker from the private `earferry-extractor` repo (which owns the
   container source and deploys isolated instances into each product's
   Cloudflare account) wraps the container and owns the R2 bucket. Convex
-  drives the Worker over HTTP; the container's multipart upload callbacks
+  submits product items to the Worker's Durable Object execution queue; the
+  container's multipart upload callbacks
   terminate in the Worker, which streams into R2 and calls back the URL in its
   per-deployment `CALLBACK_URL` var (for EarFerry: this Convex deployment's
   `/internal` HTTP actions).
@@ -38,9 +39,13 @@ All Worker endpoints (except /media) require `Authorization: Bearer INTERNAL_SEC
 
 Convex -> Worker:
 - `POST /probe` `{ url }` -> container probe result (proxied).
-- `POST /extract` `{ itemId, url }` -> 202; Worker starts a container job with
-  callbackBase pointing at itself, streams the result into R2 at
+- `POST /extract` `{ itemId, url, attemptToken, queueOrder }` -> `202` when
+  durably created or `200` when the same attempt already exists. The Durable
+  Object owns FIFO ordering, leases, retries, and restart recovery; it starts a
+  disposable container job with callbackBase pointing at the Worker and
+  streams the result into R2 at
   `items/{itemId}.mp3` (artwork at `items/{itemId}.jpg`).
+- `GET /jobs/{itemId}` -> durable execution state, used only for reconciliation.
 - `DELETE /jobs/{itemId}` -> cancel + delete R2 objects.
 - `GET /health` -> container health (proxied).
 
@@ -49,6 +54,13 @@ Worker -> Convex (HTTP actions on CONVEX_SITE_URL, same Bearer secret):
   durationSeconds?, title?, channel?, description?, publishedAt? }`
 - `POST /internal/extract-failed` `{ itemId, error, detail?, retryable }`
 - `POST /internal/extract-heartbeat` `{ itemId, phase, elapsedSeconds? }`
+
+Convex owns item and user data plus an idempotent submission outbox. It may
+probe several due items concurrently and submit them all; it does not serialize
+container work or retry accepted extraction attempts. Terminal outcomes are
+persisted in a Durable Object outbox before delivery to Convex, so a callback
+outage retries notification without downloading the media again. Production
+jobs preempt the next low-priority self-test item.
 
 Media (public, podcast clients):
 - `GET /media/{feedToken}/{itemId}.mp3?s={sig}` on the Worker, byte-range

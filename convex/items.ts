@@ -62,28 +62,21 @@ function wakeDispatcher(ctx: MutationCtx) {
   return ctx.scheduler.runAfter(0, internal.items.dispatchNext, {});
 }
 
-// The extractor runs one video at a time, so pickup order is decided here:
-// the oldest due queued item goes first, across all users. The claim happens
-// inside this transaction, so two overlapping dispatchers cannot start two
-// runs. Kicked whenever an item enters the queue or an attempt ends, with a
-// cron sweep as the backstop for lost kicks.
+// Convex owns product state, not execution ordering. This submits every due
+// item to the extractor's durable queue; that queue serializes the container,
+// gives production work priority, and survives executor restarts. Claiming the
+// rows here prevents overlapping dispatcher invocations from submitting the
+// same logical attempt twice (the extractor is idempotent as a second fence).
 export const dispatchNext = internalMutation({
   args: {},
   handler: async (ctx) => {
-    for (const status of ["probing", "extracting", "uploading"] as const) {
-      const busy = await ctx.db
-        .query("items")
-        .withIndex("by_status_next", (q) => q.eq("status", status))
-        .first();
-      if (busy) return; // The attempt's terminal transition re-kicks us.
-    }
     const now = Date.now();
     const due = await ctx.db
       .query("items")
       .withIndex("by_status_next", (q) => q.eq("status", "queued").lte("nextAttemptAt", now))
       .order("asc")
-      .first();
-    if (!due) {
+      .take(50);
+    if (due.length === 0) {
       const upcoming = await ctx.db
         .query("items")
         .withIndex("by_status_next", (q) => q.eq("status", "queued"))
@@ -94,16 +87,19 @@ export const dispatchNext = internalMutation({
       }
       return;
     }
-    await ctx.db.patch(due._id, {
-      status: "probing",
-      phase: "Checking video",
-      extractionStartedAt: now,
-    });
-    await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.items.recoverProbe, {
-      itemId: due._id,
-      startedAt: now,
-    });
-    await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: due._id, startedAt: now });
+    for (const item of due) {
+      const startedAt = Date.now();
+      await ctx.db.patch(item._id, {
+        status: "probing",
+        phase: "Checking video",
+        extractionStartedAt: startedAt,
+      });
+      await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.items.recoverProbe, {
+        itemId: item._id,
+        startedAt,
+      });
+      await ctx.scheduler.runAfter(0, internal.extractor.run, { itemId: item._id, startedAt });
+    }
   },
 });
 
@@ -353,7 +349,7 @@ export const beginExtraction = internalMutation({
     // fences its failure reports by it across the whole attempt.
     await ctx.db.patch(args.itemId, {
       status: "extracting",
-      phase: "Starting audio extraction",
+      phase: "Queued for extraction",
       attemptToken,
       lastHeartbeatAt: now,
     });
@@ -378,6 +374,24 @@ export const recordHeartbeat = internalMutation({
     await ctx.db.patch(args.itemId, {
       status: args.status,
       phase: args.phase ?? item.phase,
+      lastHeartbeatAt: Date.now(),
+    });
+    return true;
+  },
+});
+
+export const recordQueuePresence = internalMutation({
+  args: {
+    itemId: v.id("items"),
+    attempt: v.string(),
+    queued: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || !["extracting", "uploading"].includes(item.status)) return false;
+    if (item.attemptToken !== args.attempt) return false;
+    await ctx.db.patch(args.itemId, {
+      phase: args.queued ? "Queued for extraction" : item.phase,
       lastHeartbeatAt: Date.now(),
     });
     return true;
@@ -460,7 +474,7 @@ export const markReady = internalMutation({
       expiresAt,
     });
     await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });
-    // The extractor slot is free: hand it to the next queued item.
+    // Submit any product items that became due while this one was running.
     await wakeDispatcher(ctx);
     return true;
   },

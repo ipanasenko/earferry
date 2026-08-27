@@ -4,11 +4,11 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import {
   describeFailure,
+  EXTRACTION_LEASE_MS,
   isExpiredReady,
   isWaitingLiveStatus,
   nextCheckDelay,
   publishedDate,
-  recoveryDelay,
   waitingDescription,
 } from "./domain";
 
@@ -40,6 +40,13 @@ export type ExtractorHealth = {
   busy: boolean;
   job: unknown;
   tokenProvider: unknown;
+};
+
+export type ExecutionJob = {
+  id: string;
+  status: "queued" | "running" | "delivering" | "succeeded" | "failed" | "cancelled";
+  attemptToken?: string | null;
+  lastError?: string | null;
 };
 
 type DiagnosticsResult = {
@@ -123,16 +130,28 @@ export async function probeVideo(
 export async function startExtraction(
   baseUrl: string,
   secret: string,
-  job: { itemId: string; url: string; attemptToken: string },
+  job: { itemId: string; url: string; attemptToken: string; queueOrder: number },
 ): Promise<void> {
   const response = await extractorFetch(baseUrl, secret, "/extract", {
     method: "POST",
     body: JSON.stringify(job),
   });
   if (!response.ok) {
-    if (response.status === 409) throw new Error("Another extraction is already running");
+    if (response.status === 409)
+      throw new Error("A different attempt for this item is already queued");
     throw new Error(await extractorError(response, `The extractor answered ${response.status}`));
   }
+}
+
+export async function executionJob(
+  baseUrl: string,
+  secret: string,
+  itemId: string,
+): Promise<ExecutionJob | null> {
+  const response = await extractorFetch(baseUrl, secret, `/jobs/${encodeURIComponent(itemId)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Extractor job check failed (${response.status})`);
+  return ((await response.json()) as { job: ExecutionJob }).job;
 }
 
 export async function cancelJob(baseUrl: string, secret: string, itemId: string): Promise<void> {
@@ -169,6 +188,7 @@ export const run = internalAction({
       return;
     }
     const { baseUrl, secret } = config;
+    let attemptToken: string | null = null;
 
     try {
       const metadata = await probeVideo(baseUrl, secret, item.url);
@@ -198,7 +218,7 @@ export const run = internalAction({
         return;
       }
 
-      const attemptToken = await ctx.runMutation(internal.items.beginExtraction, {
+      attemptToken = await ctx.runMutation(internal.items.beginExtraction, {
         itemId: args.itemId,
       });
       if (!attemptToken) return;
@@ -206,18 +226,20 @@ export const run = internalAction({
         itemId: args.itemId,
         url: item.url,
         attemptToken,
+        queueOrder: item.nextAttemptAt ?? item.addedAt,
       });
     } catch (error) {
       const detail = String((error as Error)?.message ?? error).slice(0, 500);
-      if (detail === "Another extraction is already running") {
-        // The container is still busy (a cancelled job winding down, or a
-        // self-test). Requeue and let the dispatcher retry shortly.
-        await ctx.runMutation(internal.items.requeue, {
+      if (attemptToken) {
+        // Submission has an unknown outcome after a timeout or lost response.
+        // Keep the same fenced attempt and reconcile it with the idempotent DO
+        // queue instead of minting a competing Convex retry.
+        await ctx.runMutation(internal.items.recordQueuePresence, {
           itemId: args.itemId,
-          phase: "Waiting for a free extractor",
-          delayMs: 60_000,
-          observedStartedAt: args.startedAt,
+          attempt: attemptToken,
+          queued: true,
         });
+        await ctx.scheduler.runAfter(30_000, internal.extractor.recover, { itemId: args.itemId });
         return;
       }
       // Transient trouble (network, extractor restart, YouTube throttling)
@@ -238,26 +260,40 @@ export const recover = internalAction({
     const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
     if (!item || !["extracting", "uploading"].includes(item.status)) return;
 
-    const observedHeartbeatAt = item.lastHeartbeatAt ?? item.extractionStartedAt;
-    if (!observedHeartbeatAt) return;
-    const delay = recoveryDelay(observedHeartbeatAt);
-    if (delay > 0) {
-      await ctx.scheduler.runAfter(delay, internal.extractor.recover, { itemId: args.itemId });
-      return;
-    }
-
     const config = extractorConfig();
-    if (config) {
-      try {
+    if (!config || !item.attemptToken) return;
+
+    try {
+      const job = await executionJob(config.baseUrl, config.secret, args.itemId);
+      if (job?.attemptToken && job.attemptToken !== item.attemptToken) {
         await cancelJob(config.baseUrl, config.secret, args.itemId);
-      } catch {
-        // The guarded mutation below still returns the item to the queue. If
-        // the old job remains active, the normal busy retry waits for it.
       }
+      if (
+        !job ||
+        ["cancelled", "failed"].includes(job.status) ||
+        job.attemptToken !== item.attemptToken
+      ) {
+        // The queue is the source of truth for execution. If its record is
+        // absent or terminal while Convex still expects work, resubmit the same
+        // fenced attempt idempotently instead of minting a competing attempt.
+        await startExtraction(config.baseUrl, config.secret, {
+          itemId: args.itemId,
+          url: item.url,
+          attemptToken: item.attemptToken,
+          queueOrder: item.nextAttemptAt ?? item.addedAt,
+        });
+      }
+      await ctx.runMutation(internal.items.recordQueuePresence, {
+        itemId: args.itemId,
+        attempt: item.attemptToken,
+        queued: job?.status === "queued",
+      });
+    } catch {
+      // A transient status outage is not evidence that durable work vanished.
+      // Reconciliation keeps polling without changing the product attempt.
     }
-    await ctx.runMutation(internal.items.restartStalledExtraction, {
+    await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.extractor.recover, {
       itemId: args.itemId,
-      observedHeartbeatAt,
     });
   },
 });

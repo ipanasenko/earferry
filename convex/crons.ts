@@ -5,8 +5,8 @@ const crons = cronJobs();
 
 crons.interval("clean up expired audio", { hours: 1 }, internal.extractor.cleanupExpired);
 
-// Backstop for lost dispatcher kicks: the dispatcher is normally woken by the
-// mutation that queued an item or ended an attempt.
+// Backstop for lost submission kicks. The Durable Object owns execution order;
+// this only makes sure every due Convex item was idempotently submitted.
 crons.interval("dispatch queued extractions", { minutes: 5 }, internal.items.dispatchNext);
 
 export default crons;
