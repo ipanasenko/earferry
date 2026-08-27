@@ -140,3 +140,11 @@ body {
   outline: 2px solid var(--color-wave) !important;
   outline-offset: 2px;
 }
+
+/* Clerk sizes the avatar from its own theme, which renders smaller than the
+   header pill buttons. Pin it to the 38px pill height. */
+.cl-userButtonAvatarBox,
+.cl-userButtonAvatarImage {
+  width: 2.375rem !important;
+  height: 2.375rem !important;
+}
