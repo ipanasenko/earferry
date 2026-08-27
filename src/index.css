@@ -141,10 +141,15 @@ body {
   outline-offset: 2px;
 }
 
-/* Clerk sizes the avatar from its own theme, which renders smaller than the
-   header pill buttons. Pin it to the 38px pill height. */
+/* Clerk sizes and styles the avatar from its own theme, which renders smaller
+   and flatter than the header pill buttons. Pin it to the 38px pill height and
+   give it the same pill shadow. */
 .cl-userButtonAvatarBox,
 .cl-userButtonAvatarImage {
   width: 2.375rem !important;
   height: 2.375rem !important;
+}
+
+.cl-userButtonAvatarBox {
+  box-shadow: var(--shadow-pill) !important;
 }
