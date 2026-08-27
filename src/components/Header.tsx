@@ -124,7 +124,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => track("signin_clicked")}
-            className="flex items-center h-9.5 px-5 rounded-pill bg-ink font-semibold text-background text-sm/4 cursor-pointer hover:opacity-90 transition-opacity"
+            className="flex items-center h-9.5 px-5 rounded-pill shadow-pill bg-ink font-semibold text-background text-sm/4 cursor-pointer hover:opacity-90 transition-opacity"
           >
             Sign in
           </button>
