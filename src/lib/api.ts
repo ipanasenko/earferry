@@ -55,6 +55,9 @@ interface EarferryApi {
     syncProfile: PublicMutation<{ displayName: string }, null>;
     rotateFeedToken: PublicMutation<Record<string, never>, { feedUrl: string }>;
   };
+  billing: {
+    subscribed: PublicQuery<Record<string, never>, boolean>;
+  };
 }
 
 /**
@@ -62,3 +65,9 @@ interface EarferryApi {
  * frontend compiling even while convex/_generated is a pre-codegen stub.
  */
 export const api = generatedApi as unknown as EarferryApi;
+
+/**
+ * Polar's React components need the real generated references, not the cast
+ * above: they are typed against the component's own action signatures.
+ */
+export const polarApi = generatedApi.billing;

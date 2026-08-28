@@ -11,10 +11,19 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
 - Backend: Convex (project `earferry`, dev deployment `amicable-peccary-679`).
 - Auth: Clerk (app `earferry`, dev instance `loyal-man-2766.clerk.accounts.dev`),
   integrated with Convex via the `convex` JWT template.
-- Billing: Clerk Billing, one plan at $9/month, no free tier. Plan slug
-  `ferry` (dev instance); the auto-created `free_user` plan is hidden and
-  represents the unsubscribed state. Gate app access with
-  Clerk's `has({ plan: "ferry" })` / `<Protect plan="ferry">`.
+- Billing: Polar as merchant of record, via the `@convex-dev/polar` component.
+  One recurring plan at $9/month, no free tier. Polar owns checkout, EU VAT,
+  invoices, dunning and the customer portal, so EarFerry holds no card data and
+  needs no VAT registration of its own. Clerk keeps auth only.
+  Subscription state is mirrored into Convex by Polar's webhook at
+  `POST /polar/events`; entitlement is `convex/billing.ts` `isSubscribed`,
+  enforced server-side in `requirePaidEntitlement` and surfaced to the UI by
+  `api.billing.subscribed`. A cancelled subscription stays entitled until the
+  paid period ends.
+  Convex env vars: `POLAR_ORGANIZATION_TOKEN`, `POLAR_WEBHOOK_SECRET`,
+  `POLAR_SERVER` (`sandbox` on the development deployment, `production` on
+  production; each Polar environment is a separate organization with its own
+  products, token and webhook).
 - Extraction: the shared extractor container from the private repo
   (see `~/Projects/listen-later/docs/plans/shared-extractor.md`). EarFerry runs
   its own instance in the `earferry` Cloudflare account: a product-agnostic
@@ -79,6 +88,11 @@ optional `FEED_BASE_URL`.
 - `api.items.remove({ id })`
 - `api.items.retry({ id })`
 - `api.users.me()` — `{ feedUrl }` with the user's tokenized feed URL.
+- `api.billing.subscribed()` — whether the caller has an entitling Polar
+  subscription. Chooses between the queue and the subscribe page; it is not the
+  security boundary, `requirePaidEntitlement` is.
+- `api.billing.listAllProducts()`, `generateCheckoutLink`,
+  `generateCustomerPortalUrl` — exported by the Polar component.
 
 Item statuses: `queued | probing | waiting | extracting | uploading | ready | failed`.
 UI groups them as: Ready (green), Extracting (blue, covers queued/probing/

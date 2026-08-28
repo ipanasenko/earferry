@@ -86,7 +86,11 @@ function BookmarkletButton() {
   );
 }
 
-export function Header() {
+/**
+ * `minimal` drops the feed and bookmarklet pills, per the "App · Subscribe"
+ * Paper artboard: neither is usable before there is a subscription.
+ */
+export function Header({ minimal = false }: { minimal?: boolean }) {
   return (
     <header className="flex items-center justify-between gap-4 py-5 sm:py-7.5">
       <Link to="/" className="flex items-center gap-2.25 sm:gap-2.75">
@@ -102,10 +106,14 @@ export function Header() {
       </Link>
       <SignedIn>
         <div className="flex items-center justify-end gap-2.5">
-          <FeedUrlButton />
-          <span className="hidden sm:block">
-            <BookmarkletButton />
-          </span>
+          {!minimal && (
+            <>
+              <FeedUrlButton />
+              <span className="hidden sm:block">
+                <BookmarkletButton />
+              </span>
+            </>
+          )}
           <UserButton
             appearance={{
               elements: {

@@ -24,7 +24,9 @@ export type AnalyticsEvent =
   | "item_removed"
   | "item_retried"
   | "feed_url_copied"
-  | "feed_url_rotated";
+  | "feed_url_rotated"
+  | "subscribe_clicked"
+  | "subscription_managed";
 
 export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {
   if (!analyticsEnabled) return;

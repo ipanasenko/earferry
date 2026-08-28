@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { polar } from "./billing";
 import { buildFeed, signedArtworkUrl, signedMediaUrl } from "./feed";
 import { feedBaseUrl } from "./users";
 import { capture } from "./analytics";
@@ -187,5 +188,10 @@ http.route({
     return json({ alive: true });
   }),
 });
+
+// POST /polar/events: Polar subscription and product webhooks, signature
+// verified by the component. Without this the mirrored subscription state goes
+// stale and paying users lose access.
+polar.registerRoutes(http);
 
 export default http;

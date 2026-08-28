@@ -1,16 +1,22 @@
 import { describe, expect, test } from "bun:test";
-import { hasPlan } from "../convex/users";
+import { isEntitled } from "../convex/billing";
 
-describe("hasPlan", () => {
-  test("accepts the paid plan at user or organization scope", () => {
-    expect(hasPlan("u:ferry", "ferry")).toBe(true);
-    expect(hasPlan("o:ferry", "ferry")).toBe(true);
+describe("isEntitled", () => {
+  test("accepts a paying or trialing Polar subscription", () => {
+    expect(isEntitled("active")).toBe(true);
+    expect(isEntitled("trialing")).toBe(true);
   });
 
-  test("rejects another plan or a malformed claim", () => {
-    expect(hasPlan("u:free_user", "ferry")).toBe(false);
-    expect(hasPlan("ferry", "ferry")).toBe(false);
-    expect(hasPlan("u:ferry:extra", "ferry")).toBe(false);
-    expect(hasPlan(undefined, "ferry")).toBe(false);
+  test("rejects a subscription that is not paying yet or no longer paying", () => {
+    expect(isEntitled("incomplete")).toBe(false);
+    expect(isEntitled("incomplete_expired")).toBe(false);
+    expect(isEntitled("past_due")).toBe(false);
+    expect(isEntitled("unpaid")).toBe(false);
+    expect(isEntitled("canceled")).toBe(false);
+  });
+
+  test("rejects a missing subscription", () => {
+    expect(isEntitled(undefined)).toBe(false);
+    expect(isEntitled(null)).toBe(false);
   });
 });
