@@ -9,6 +9,9 @@
     "lint": "oxlint",
     "test": "bun test test",
     "test:e2e": "playwright test",
+    "validate:production": "bun scripts/validate-production-env.ts",
+    "deploy:dev": "VITE_POSTHOG_KEY= bun run build && bunx wrangler deploy --config wrangler.dev.jsonc",
+    "preview:upload": "bunx wrangler versions upload --config wrangler.dev.jsonc",
     "preview": "vite preview",
     "registry:normalize": "bun scripts/normalize-bun-registry.js",
     "prepare": "lefthook install"

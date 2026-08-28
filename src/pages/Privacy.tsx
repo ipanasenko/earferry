@@ -11,7 +11,7 @@ const SECTIONS = [
   },
   {
     title: "Analytics",
-    body: "We use PostHog to measure page visits and product actions such as adding, retrying, and deleting episodes. Signed-in analytics are linked to your account ID and email. We do not track what you play in your podcast app, sell your data, or show ads.",
+    body: "We use PostHog to measure page visits and product actions such as adding, retrying, and deleting episodes. Signed-in analytics are linked to your account ID, but we do not send your email address, record sessions, track what you play in your podcast app, sell your data, or show ads.",
   },
   {
     title: "Third parties",

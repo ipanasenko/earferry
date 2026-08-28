@@ -30,6 +30,21 @@ no entitlement check in the app.
 clerk config patch --instance prod --json '{"auth_access_control":{"sign_up_mode":"waitlist"}}'
 ```
 
+## Deployment
+
+Deploy the shared development environment with:
+
+```sh
+bun run deploy:dev
+```
+
+This builds with `.env.local`, disables PostHog, and updates
+`earferry.earferry.workers.dev`. Pull requests from this repository receive a
+preview at `pr-<number>-earferry.earferry.workers.dev`, backed by development
+Clerk and an isolated `pr-<number>` Convex preview deployment. Pushes to `main`
+use production Clerk and Convex and deploy to `earferry.com` through GitHub
+Actions.
+
 ## Stack
 
 - React 19 + TypeScript + Tailwind 4 (Vite, Bun)

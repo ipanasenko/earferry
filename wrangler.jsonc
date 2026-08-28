@@ -2,8 +2,17 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "earferry",
   "compatibility_date": "2026-08-01",
-  "account_id": "89f3c0dd5d80dc28486cbfbb753087fe",
+  // The public Worker lives with the earferry.com zone. Convex and the
+  // extractor remain in their existing accounts and are reached by URL.
+  "account_id": "be6e2f2b3a5a0d89e0947a076a5f2723",
   "main": "worker/index.ts",
+  "routes": [
+    { "pattern": "earferry.com", "custom_domain": true },
+    { "pattern": "www.earferry.com", "custom_domain": true }
+  ],
+  "observability": {
+    "enabled": true
+  },
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",

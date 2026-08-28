@@ -36,7 +36,7 @@ jobs:
       - name: Build frontend
         run: bun run build
         env:
-          VITE_CONVEX_URL: https://example.convex.cloud
+          VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL_DEVELOPMENT }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY_DEVELOPMENT }}
 
       - name: Install browser
@@ -44,6 +44,79 @@ jobs:
 
       - name: Smoke test homepage
         run: bun run test:e2e
+
+  preview:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - run: bun install --frozen-lockfile
+
+      # The preview is a convenience; production deployment is not. Without the
+      # key configured this job reports success and explains itself, rather than
+      # failing every pull request in the repository.
+      - name: Check for the Convex preview key
+        id: guard
+        env:
+          CONVEX_PREVIEW_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+        run: |
+          if [ -z "${CONVEX_PREVIEW_DEPLOY_KEY:-}" ]; then
+            echo 'CONVEX_PREVIEW_DEPLOY_KEY is not set, so no PR preview was built.' \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      # Creates or updates an isolated Convex backend named pr-<number> and
+      # builds the frontend against it, so one PR can never overwrite another
+      # PR's functions, schema or data. The preview backend inherits only the
+      # project's preview default environment variables (the development Clerk
+      # issuer), so it cannot reach the extractor or PostHog.
+      - name: Deploy Convex preview + build frontend
+        if: steps.guard.outputs.enabled == 'true'
+        run: >-
+          bunx convex deploy
+          --preview-name "pr-${{ github.event.pull_request.number }}"
+          --cmd 'bash scripts/preview-build.sh'
+          --cmd-url-env-var-name VITE_CONVEX_URL
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY_DEVELOPMENT }}
+
+      # CONVEX_SITE_URL is written to GITHUB_ENV by scripts/preview-build.sh and
+      # overrides the shared development origin in wrangler.dev.jsonc.
+      - name: Upload PR preview
+        if: steps.guard.outputs.enabled == 'true'
+        run: >-
+          bun run preview:upload --
+          --preview-alias "pr-${{ github.event.pull_request.number }}"
+          --var CONVEX_SITE_URL:"$CONVEX_SITE_URL"
+          --tag "${GITHUB_SHA::9}"
+          --message "PR #${{ github.event.pull_request.number }}: $(git log -1 --format=%s)"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Publish preview URL
+        if: steps.guard.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}-earferry.earferry.workers.dev
+        run: |
+          printf '### Cloudflare preview\n\n%s\n' "$PREVIEW_URL" >> "$GITHUB_STEP_SUMMARY"
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --edit-last --create-if-none \
+            --body "Development preview: $PREVIEW_URL"
 
   deploy:
     if: github.event_name == 'push'
@@ -56,6 +129,12 @@ jobs:
           bun-version: 1.3.13
 
       - run: bun install --frozen-lockfile
+
+      - name: Validate production configuration
+        run: bun run validate:production
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_POSTHOG_KEY: ${{ vars.VITE_POSTHOG_KEY }}
 
       # Deploys Convex functions to production and builds the frontend with
       # the production VITE_CONVEX_URL injected by `convex deploy --cmd`.
@@ -73,4 +152,4 @@ jobs:
           --tag "${GITHUB_SHA::9}"
           --message "$(git log -1 --format=%s)"
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}

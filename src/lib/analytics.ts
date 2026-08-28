@@ -12,6 +12,13 @@ export function initAnalytics() {
     api_host: "https://eu.i.posthog.com",
     // The 2025-05-24 defaults enable history-based SPA pageview capture.
     defaults: "2025-05-24",
+    // EarFerry only needs explicit product events and page views. Avoid
+    // collecting page contents, console output, performance traces, or
+    // recordings that may contain URLs from a user's private queue.
+    autocapture: false,
+    disable_session_recording: true,
+    capture_exceptions: false,
+    capture_performance: false,
   });
   posthog.register({ product: "earferry" });
 }
