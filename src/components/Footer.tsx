@@ -14,8 +14,11 @@ const LINKS = [
 // donations only, so nothing here is a promise of recompense. Donating must
 // never affect access — that is what keeps this a gift rather than a price, and
 // keeps EarFerry outside KVK's "je vraagt een prijs of tarief" test.
-// See docs/research/billing-options.md.
-const DONATE_URL = "https://liberapay.com/earferry/donate";
+//
+// A personal profile rather than an earferry one, deliberately: a gift to a
+// person reads differently from revenue for a product, and it outlives this
+// project. See docs/research/billing-options.md.
+const DONATE_URL = "https://liberapay.com/ipanasenko/donate";
 
 /**
  * `donate` is opt-out because one page must never show the link: the waitlist.
