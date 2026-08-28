@@ -1,4 +1,5 @@
 import { StaticPageLayout, StaticSection } from "./StaticPage";
+import { usePageMeta } from "../lib/meta";
 
 const SECTIONS = [
   {
@@ -24,6 +25,13 @@ const SECTIONS = [
 ];
 
 export function PrivacyPage() {
+  usePageMeta({
+    title: "Privacy · EarFerry",
+    description:
+      "What EarFerry stores, who it shares data with, and why your feed is private and never publicly listed.",
+    path: "/privacy",
+  });
+
   return (
     <StaticPageLayout
       title="Privacy"

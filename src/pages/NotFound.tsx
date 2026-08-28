@@ -1,7 +1,16 @@
 import { Header } from "../components/Header";
 import { DrowningEarMark } from "../components/icons";
+import { usePageMeta } from "../lib/meta";
 
 export function NotFoundPage() {
+  // Cloudflare answers unknown paths with index.html and status 200, so this
+  // page has to declare itself unindexable; nothing else marks it as a 404.
+  usePageMeta({
+    title: "Page not found · EarFerry",
+    description: "There is nothing at this address.",
+    noindex: true,
+  });
+
   return (
     <div className="page-gradient min-h-screen">
       <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-4 sm:px-6 md:px-25">

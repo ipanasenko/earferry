@@ -23,6 +23,10 @@ export function hardenFeedResponse(response: Response): Response {
   headers.set("Referrer-Policy", "no-referrer");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
+  // A feed URL is a secret, and a leaked one must not become a search result.
+  // robots.txt asks crawlers not to fetch these; this tells the ones that did
+  // anyway, or that found the URL elsewhere, to keep it out of the index.
+  headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

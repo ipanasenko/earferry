@@ -12,6 +12,39 @@
       name="description"
       content="Save any YouTube video and EarFerry ferries the audio into a private podcast feed you can play anywhere."
     />
+    <!--
+      earferry.com and www.earferry.com are both custom domains on this Worker,
+      so name the one that counts. Per-route titles, descriptions and canonicals
+      are set at runtime in src/lib/meta.ts.
+    -->
+    <link rel="canonical" href="https://earferry.com/" />
+    <!--
+      The unfurl card stays in static HTML on purpose: Slack, iMessage, WhatsApp
+      and X do not run JavaScript, so this file is all they ever see. It
+      describes the landing page, which is the link people share. Invite-only
+      growth travels through pasted links, so this matters more than ranking.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="EarFerry" />
+    <meta property="og:url" content="https://earferry.com/" />
+    <meta property="og:title" content="EarFerry · Shipping YouTube to your podcasts" />
+    <meta
+      property="og:description"
+      content="Save any YouTube video and EarFerry ferries the audio into a private podcast feed you can play anywhere."
+    />
+    <!--
+      og-card.png is exported from the "Social · OG card" artboard in the Paper
+      file "EarFerry". Edit it there, re-export at 1x, and keep it 1200x630:
+      the 1.91:1 ratio is what every unfurler crops to.
+    -->
+    <meta property="og:image" content="https://earferry.com/og-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The earferry wordmark over the line: YouTube for your ears. Any video, ferried into a private podcast feed you can play anywhere."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

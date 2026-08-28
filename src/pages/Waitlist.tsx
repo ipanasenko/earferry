@@ -1,6 +1,7 @@
 import { Waitlist } from "@clerk/clerk-react";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
+import { usePageMeta } from "../lib/meta";
 
 /**
  * Waitlist page per the "App · Waitlist" Paper artboard.
@@ -15,6 +16,13 @@ import { Footer } from "../components/Footer";
  * "Already have access?" row is hidden, since the header already offers Sign in.
  */
 export function WaitlistPage() {
+  usePageMeta({
+    title: "Join the waitlist · EarFerry",
+    description:
+      "EarFerry is free and invite-only while it is small. Leave your email and you will be let in as capacity allows.",
+    path: "/join",
+  });
+
   return (
     <div className="page-gradient min-h-screen">
       <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-4 sm:px-6 md:px-25">

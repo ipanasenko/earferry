@@ -1,0 +1,10 @@
+# Nothing here is optimised for search. EarFerry is free, invite-only and
+# capacity-limited, so the point of this file is to keep private surfaces out
+# of indexes, not to attract crawlers. No sitemap on purpose.
+User-agent: *
+Allow: /
+
+# Feed URLs are tokenised and private. The Worker also answers them with
+# X-Robots-Tag: noindex, which is the rule that actually binds; this line only
+# stops a leaked URL from being fetched in the first place.
+Disallow: /feed/
