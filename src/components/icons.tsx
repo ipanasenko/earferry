@@ -12,6 +12,7 @@ import {
   ReloadIcon as HugeReload,
   RssIcon as HugeRss,
   Tick01Icon as HugeTick,
+  HandHeartIcon as HugeHandHeart,
 } from "@hugeicons/core-free-icons";
 
 export function LogoMark({ size = 38 }: { size?: number }) {
@@ -270,6 +271,28 @@ export function CancelIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
 
 export function FeedIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
   return <UiIcon icon={HugeRss} stroke={stroke} />;
+}
+
+/**
+ * A hand offering a heart, not a coin: the donation is a gift rather than a
+ * price, and the header should not imply otherwise.
+ */
+export function DonateIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
+  return <UiIcon icon={HugeHandHeart} stroke={stroke} />;
+}
+
+/** The same mark at footer-link size, next to the 11px label. */
+export function DonateIconSmall({ stroke = "var(--color-text-muted)" }: IconProps) {
+  return (
+    <HugeiconsIcon
+      icon={HugeHandHeart}
+      size={13}
+      color={stroke}
+      strokeWidth={2}
+      className="shrink-0"
+      aria-hidden="true"
+    />
+  );
 }
 
 /** Inline copy glyph sized to sit next to 13px button labels. */
