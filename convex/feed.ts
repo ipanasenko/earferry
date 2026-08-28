@@ -96,8 +96,22 @@ export function parseYouTubeChapters(
     .map(({ start, title }) => ({ start, title }));
 }
 
+// Players tile chapters across the whole episode, so when a description's first
+// timestamp is not 0:00 the leading gap gets a synthesised name like
+// "Untitled Chapter 1". Name it ourselves instead.
+export function withIntroChapter(
+  chapters: Array<{ start: string; title: string }>,
+): Array<{ start: string; title: string }> {
+  const first = chapters[0];
+  if (!first || timestampSeconds(first.start) === 0) return chapters;
+  // Match the shape of the timestamps already in the list, so one feed does not
+  // mix "0:00" and "00:00:00".
+  const zero = first.start.split(":").length === 3 ? "00:00:00" : "0:00";
+  return [{ start: zero, title: "Intro" }, ...chapters];
+}
+
 function chapterXml(description: string | undefined): string {
-  const chapters = parseYouTubeChapters(description);
+  const chapters = withIntroChapter(parseYouTubeChapters(description));
   if (chapters.length === 0) return "";
   return `
       <psc:chapters version="1.2">${chapters
