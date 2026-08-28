@@ -26,9 +26,9 @@ and an IBAN rather than a Dutch KVK number.
 
 Polar's sandbox is a fully separate instance at `sandbox.polar.sh` with its own
 user account, organization and tokens; production tokens do not work there.
-Create two recurring products per organization, $9/month and $79/year; the
-subscribe page reads the interval off each product's price and shows yearly
-first. Per Convex deployment:
+Create one recurring $9/month product per organization; the subscribe page picks
+the live product matching `SOLD_INTERVAL` in `src/pages/Subscribe.tsx` and reads
+the price off it. Per Convex deployment:
 
 ```sh
 bunx convex env set POLAR_ORGANIZATION_TOKEN <organization token>
