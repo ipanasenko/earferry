@@ -30,8 +30,27 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
 - Storage: R2 bucket `earferry-media` in the earferry Cloudflare account
   (30-day lifecycle). Stores the extracted MP3s and the square episode
   artwork generated during extraction.
-- Hosting: frontend as Cloudflare static assets in the earferry account;
-  Convex Cloud for the backend.
+- Hosting: frontend as Cloudflare static assets. Production runs in the
+  `ipanasenko` Cloudflare account alongside the `earferry.com` zone while the
+  registrar transfer lock is active. The shared development Worker and PR
+  preview aliases run in the `earferry` account. Convex Cloud hosts separate
+  development and production backends.
+
+## Environments and deployment
+
+| Environment | Frontend | Clerk | Convex | PostHog |
+| --- | --- | --- | --- | --- |
+| Local | Vite localhost | Development | Development | Disabled when unset |
+| Shared development | `earferry.earferry.workers.dev` | Development | Development | Disabled |
+| PR preview | `pr-<number>-earferry.earferry.workers.dev` | Development | Development | Disabled |
+| Production | `earferry.com` / `www.earferry.com` | Production | Production | Production |
+
+`bun run deploy:dev` updates the shared development Worker from `.env.local`.
+GitHub Actions uploads PR versions with a stable `pr-<number>` preview alias;
+those versions are not promoted to shared-development traffic. Only pushes to
+`main` deploy Convex production and the custom-domain Worker. Preview builds
+from forks are skipped because GitHub does not expose deployment secrets to
+fork workflows.
 
 ## Extractor Worker contract (Convex <-> earferry-extractor Worker)
 

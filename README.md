@@ -18,6 +18,19 @@ bun run dev       # frontend (Vite)
 Environment variables live in `.env.local` (Clerk keys via `clerk env pull`,
 Convex URL via `bunx convex dev`).
 
+Deploy the shared development environment with:
+
+```sh
+bun run deploy:dev
+```
+
+This builds with `.env.local`, disables PostHog, and updates
+`earferry.earferry.workers.dev`. Pull requests from this repository receive a
+development preview at
+`pr-<number>-earferry.earferry.workers.dev`. Both use development Clerk and
+Convex; pushes to `main` use production Clerk and Convex and deploy to
+`earferry.com` through GitHub Actions.
+
 ## Stack
 
 - React 19 + TypeScript + Tailwind 4 (Vite, Bun)

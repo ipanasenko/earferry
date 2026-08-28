@@ -14,7 +14,7 @@ export function AnalyticsIdentity() {
     if (!isLoaded) return;
     if (isSignedIn && user) {
       wasSignedIn.current = true;
-      identify(user.id, { email: user.primaryEmailAddress?.emailAddress });
+      identify(user.id);
     } else if (wasSignedIn.current) {
       // Reset only on the sign-out transition so anonymous visitors keep a
       // stable distinct id across loads.
