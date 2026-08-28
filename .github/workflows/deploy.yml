@@ -30,6 +30,9 @@ jobs:
       - name: Typecheck
         run: bunx tsc -b
 
+      # Development Clerk key on purpose: a pk_live_ key refuses localhost, so
+      # the production key blanks the page the smoke test then fails on.
+      # PostHog stays unset so CI runs do not land in product analytics.
       - name: Build frontend
         run: bun run build
         env:

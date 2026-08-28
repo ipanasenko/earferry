@@ -24,14 +24,15 @@ export function initAnalytics() {
 }
 
 export type AnalyticsEvent =
-  | "signup_clicked"
+  | "waitlist_clicked"
   | "signin_clicked"
   | "item_added"
   | "item_add_failed"
   | "item_removed"
   | "item_retried"
   | "feed_url_copied"
-  | "feed_url_rotated";
+  | "feed_url_rotated"
+  | "donate_clicked";
 
 export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {
   if (!analyticsEnabled) return;

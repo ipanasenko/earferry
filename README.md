@@ -18,6 +18,20 @@ bun run dev       # frontend (Vite)
 Environment variables live in `.env.local` (Clerk keys via `clerk env pull`,
 Convex URL via `bunx convex dev`).
 
+## Access
+
+EarFerry is free and invite-only, and is not for sale — see
+`docs/research/billing-options.md` for why. Clerk runs in `waitlist` sign-up
+mode, so `/join` collects emails and accounts are created only when an entry is
+approved in the Clerk dashboard. Approve people there; there is no admin UI and
+no entitlement check in the app.
+
+```sh
+clerk config patch --instance prod --json '{"auth_access_control":{"sign_up_mode":"waitlist"}}'
+```
+
+## Deployment
+
 Deploy the shared development environment with:
 
 ```sh
@@ -34,6 +48,6 @@ Actions.
 ## Stack
 
 - React 19 + TypeScript + Tailwind 4 (Vite, Bun)
-- Convex (backend), Clerk (auth + billing)
+- Convex (backend), Clerk (auth + waitlist)
 - Cloudflare: Workers static assets (frontend), Containers (shared extractor),
   R2 (`earferry-media` — extracted MP3s and squared episode artwork)

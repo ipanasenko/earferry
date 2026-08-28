@@ -11,10 +11,20 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
 - Backend: Convex (project `earferry`, dev deployment `amicable-peccary-679`).
 - Auth: Clerk (app `earferry`, dev instance `loyal-man-2766.clerk.accounts.dev`),
   integrated with Convex via the `convex` JWT template.
-- Billing: Clerk Billing, one plan at $9/month, no free tier. Plan slug
-  `ferry` (dev instance); the auto-created `free_user` plan is hidden and
-  represents the unsubscribed state. Gate app access with
-  Clerk's `has({ plan: "ferry" })` / `<Protect plan="ferry">`.
+- Access: free and invite-only. There is no billing. Clerk runs in `waitlist`
+  sign-up mode (`auth_access_control.sign_up_mode`), so an account only exists
+  once a waitlist entry has been approved in the Clerk dashboard. Signed in
+  therefore means invited, and no further entitlement check exists anywhere;
+  `/join` renders Clerk's `<Waitlist />`.
+  EarFerry cannot be sold: merchants of record classify it as a prohibited
+  third-party content downloader (Polar rejected it outright), and CJEU VCAST
+  (C-265/16) puts a commercial operator outside the private-copying exception.
+  The evidence is in `docs/research/billing-options.md`; the alternative product
+  that could be sold is sketched in `docs/plans/sellable-product.md`.
+- Donations: an unconditional Liberapay link in the footer. Donating must never
+  affect access or capacity. That is what keeps it a gift rather than a price,
+  and keeps EarFerry outside KVK's "je vraagt een prijs of tarief" registration
+  test. Never show it on `/join`.
 - Extraction: the shared extractor container from the private repo
   (see `~/Projects/listen-later/docs/plans/shared-extractor.md`). EarFerry runs
   its own instance in the `earferry` Cloudflare account: a product-agnostic
