@@ -1,4 +1,5 @@
 import { StaticPageLayout, StaticSection } from "./StaticPage";
+import { usePageMeta } from "../lib/meta";
 
 const SECTIONS = [
   {
@@ -24,6 +25,13 @@ const SECTIONS = [
 ];
 
 export function TermsPage() {
+  usePageMeta({
+    title: "Terms · EarFerry",
+    description:
+      "The terms of using EarFerry: personal, non-commercial listening, acceptable use, and no warranty.",
+    path: "/terms",
+  });
+
   return (
     <StaticPageLayout
       title="Terms"

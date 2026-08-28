@@ -32,4 +32,10 @@ describe("feed proxy", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
   });
+
+  test("keeps leaked feed URLs out of search indexes", () => {
+    const response = hardenFeedResponse(new Response("feed", { status: 200 }));
+
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive");
+  });
 });

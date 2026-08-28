@@ -142,5 +142,10 @@ Failed (red, with retry).
 
 - Pre-commit (lefthook) normalizes any private Wix registry URLs out of
   `bun.lock`.
+- Search: there is no SEO strategy, on purpose. `index.html` holds the static
+  Open Graph card (unfurlers do not run JS), `src/lib/meta.ts` sets per-route
+  title, description and canonical, `public/robots.txt` carries no sitemap, and
+  the feed proxy answers `X-Robots-Tag: noindex`. Reconsider only for the
+  sellable product in `docs/plans/sellable-product.md`.
 - Design source of truth: Paper file "EarFerry" — use exact tokens/JSX from
   Paper MCP, not screenshots. Icons: Hugeicons.

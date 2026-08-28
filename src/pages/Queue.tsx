@@ -9,8 +9,18 @@ import { AddForm } from "../components/AddForm";
 import { QueueItem } from "../components/QueueItem";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
+import { usePageMeta } from "../lib/meta";
 
 export function QueuePage() {
+  // Renders at "/" for signed-in people, so the canonical stays the landing
+  // URL: a crawler only ever sees the signed-out page at this address.
+  usePageMeta({
+    title: "Your queue · EarFerry",
+    description:
+      "Save any YouTube video and EarFerry ferries the audio into a private podcast feed you can play anywhere.",
+    path: "/",
+  });
+
   const items = useQuery(api.items.list, {});
   const add = useMutation(api.items.add);
   const [searchParams, setSearchParams] = useSearchParams();

@@ -1,4 +1,5 @@
 import { StaticPageLayout } from "./StaticPage";
+import { usePageMeta } from "../lib/meta";
 
 const FAQ = [
   {
@@ -16,6 +17,13 @@ const FAQ = [
 ];
 
 export function SupportPage() {
+  usePageMeta({
+    title: "Support · EarFerry",
+    description:
+      "Fixes for failed extractions, feeds that show no new episodes, and leaked feed URLs.",
+    path: "/support",
+  });
+
   return (
     <StaticPageLayout
       title="Support"

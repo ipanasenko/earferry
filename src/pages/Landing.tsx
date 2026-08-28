@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { track } from "../lib/analytics";
+import { usePageMeta } from "../lib/meta";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 
@@ -19,6 +20,15 @@ const FEATURES = [
 ];
 
 export function LandingPage() {
+  // Matches the static tags in index.html on purpose: this route is the one an
+  // unfurler renders from raw HTML, so the two must not drift apart.
+  usePageMeta({
+    title: "EarFerry · Shipping YouTube to your podcasts",
+    description:
+      "Save any YouTube video and EarFerry ferries the audio into a private podcast feed you can play anywhere.",
+    path: "/",
+  });
+
   return (
     <div className="page-gradient min-h-screen">
       <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-4 sm:px-6 md:px-25">
