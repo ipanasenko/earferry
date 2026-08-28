@@ -25,4 +25,11 @@ describe("podcast feed", () => {
     expect(feed).toContain(`<pubDate>${new Date(addedAt).toUTCString()}</pubDate>`);
     expect(feed).not.toContain(`<pubDate>${new Date(publishedAt).toUTCString()}</pubDate>`);
   });
+
+  test("includes the user's name in the feed title and author", async () => {
+    const feed = await buildFeed([], "https://earferry.example", "feed-token", "Ava & Sam");
+
+    expect(feed).toContain("<title>EarFerry · Captained by Ava &amp; Sam</title>");
+    expect(feed).toContain("<itunes:author>EarFerry · Captained by Ava &amp; Sam</itunes:author>");
+  });
 });

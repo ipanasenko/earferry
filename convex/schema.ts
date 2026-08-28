@@ -16,6 +16,7 @@ export default defineSchema({
   users: defineTable({
     clerkId: v.string(),
     feedToken: v.string(),
+    displayName: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_clerk_id", ["clerkId"])

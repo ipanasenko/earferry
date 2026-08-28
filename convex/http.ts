@@ -37,7 +37,7 @@ http.route({
     const items = await ctx.runQuery(internal.items.readyItemsForUser, { userId: user._id });
     // feedBaseUrl, not url.origin: behind the site's /feed/* proxy the request
     // origin is still *.convex.site, which would leak into the self-link.
-    const xml = await buildFeed(items, feedBaseUrl(), user.feedToken);
+    const xml = await buildFeed(items, feedBaseUrl(), user.feedToken, user.displayName);
     return new Response(xml, {
       headers: {
         "content-type": "application/rss+xml; charset=utf-8",

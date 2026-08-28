@@ -1,4 +1,4 @@
-import { ConvexError } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
@@ -65,6 +65,22 @@ export const me = query({
     const user = await currentUser(ctx);
     if (!user) return { feedUrl: null };
     return { feedUrl: `${feedBaseUrl()}/feed/${encodeURIComponent(user.feedToken)}` };
+  },
+});
+
+export const syncProfile = mutation({
+  args: { displayName: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("You are signed out. Sign in and try again");
+
+    const displayName = args.displayName.trim().slice(0, 100);
+    if (!displayName) return;
+
+    const user = await getOrCreateUser(ctx);
+    if (user.displayName !== displayName) {
+      await ctx.db.patch(user._id, { displayName });
+    }
   },
 });
 
