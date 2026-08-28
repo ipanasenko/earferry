@@ -30,12 +30,14 @@ jobs:
       - name: Typecheck
         run: bunx tsc -b
 
+      # Development Clerk key on purpose: a pk_live_ key refuses localhost, so
+      # the production key blanks the page the smoke test then fails on.
+      # PostHog stays unset so CI runs do not land in product analytics.
       - name: Build frontend
         run: bun run build
         env:
           VITE_CONVEX_URL: https://example.convex.cloud
-          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
-          VITE_POSTHOG_KEY: ${{ vars.VITE_POSTHOG_KEY }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY_DEVELOPMENT }}
 
       - name: Install browser
         run: bunx playwright install --with-deps chromium

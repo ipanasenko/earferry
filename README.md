@@ -21,7 +21,9 @@ Convex URL via `bunx convex dev`).
 ### Billing (Polar)
 
 Billing runs on Polar as merchant of record. Sandbox and production are separate
-Polar organizations, so each needs its own product, token and webhook. Per
+Polar organizations, so each needs its own products, token and webhook. Create
+two recurring products per organization, $9/month and $79/year; the subscribe
+page reads the interval off each product's price and shows yearly first. Per
 Convex deployment:
 
 ```sh

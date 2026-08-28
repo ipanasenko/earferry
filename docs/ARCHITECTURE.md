@@ -12,7 +12,8 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
 - Auth: Clerk (app `earferry`, dev instance `loyal-man-2766.clerk.accounts.dev`),
   integrated with Convex via the `convex` JWT template.
 - Billing: Polar as merchant of record, via the `@convex-dev/polar` component.
-  One recurring plan at $9/month, no free tier. Polar owns checkout, EU VAT,
+  Two recurring plans, $9/month and $79/year, no free tier. Either grants the
+  same access, so entitlement checks status rather than which product. Polar owns checkout, EU VAT,
   invoices, dunning and the customer portal, so EarFerry holds no card data and
   needs no VAT registration of its own. Clerk keeps auth only.
   Subscription state is mirrored into Convex by Polar's webhook at
