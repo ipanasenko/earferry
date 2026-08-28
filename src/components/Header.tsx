@@ -4,7 +4,8 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-reac
 import { useQuery } from "convex/react";
 import { api } from "../lib/api";
 import { track } from "../lib/analytics";
-import { ConfirmIcon, CopyIcon, FeedIcon, LogoMark } from "./icons";
+import { DONATE_URL } from "../lib/links";
+import { ConfirmIcon, CopyIcon, DonateIcon, FeedIcon, LogoMark } from "./icons";
 import { Tooltip } from "./Tooltip";
 
 function pillButtonClass(extra = "") {
@@ -90,6 +91,26 @@ function BookmarkletButton() {
  * `minimal` drops the feed and bookmarklet pills, per the "App · Waitlist"
  * Paper artboard: neither is usable before there is an account.
  */
+/**
+ * Only signed-in people see this: asking a visitor who cannot even sign up yet
+ * would read as "pay to get in", which is exactly the impression to avoid.
+ */
+function DonateButton() {
+  return (
+    <a
+      href={DONATE_URL}
+      target="_blank"
+      rel="noreferrer noopener"
+      onClick={() => track("donate_clicked")}
+      aria-label="Support EarFerry with a donation"
+      title="Support EarFerry with a donation"
+      className="w-9.5 h-9.5 flex items-center justify-center rounded-pill shadow-pill bg-background cursor-pointer hover:opacity-80 transition-opacity"
+    >
+      <DonateIcon />
+    </a>
+  );
+}
+
 export function Header({ minimal = false }: { minimal?: boolean }) {
   return (
     <header className="flex items-center justify-between gap-4 py-5 sm:py-7.5">
@@ -112,6 +133,7 @@ export function Header({ minimal = false }: { minimal?: boolean }) {
               <span className="hidden sm:block">
                 <BookmarkletButton />
               </span>
+              <DonateButton />
             </>
           )}
           <UserButton

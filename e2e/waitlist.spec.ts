@@ -19,6 +19,7 @@ test("the waitlist page offers no way to pay", async ({ page }) => {
 
   await expect(page.getByRole("heading", { level: 1, name: "Join the waitlist." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Donate" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /donation/i })).toHaveCount(0);
 });
 
 test("every other page does offer the donate link", async ({ page }) => {
