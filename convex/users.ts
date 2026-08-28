@@ -2,8 +2,6 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
-const PAID_PLAN = "ferry";
-
 function randomFeedToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -16,20 +14,6 @@ export function feedBaseUrl(): string {
   const base = process.env.FEED_BASE_URL ?? process.env.CONVEX_SITE_URL;
   if (!base) throw new Error("FEED_BASE_URL or CONVEX_SITE_URL must be set");
   return base.replace(/\/$/, "");
-}
-
-export function hasPlan(planClaim: unknown, plan: string): boolean {
-  if (typeof planClaim !== "string") return false;
-  const [scope, slug, ...extra] = planClaim.split(":");
-  return extra.length === 0 && (scope === "u" || scope === "o") && slug === plan;
-}
-
-export async function requirePaidEntitlement(ctx: MutationCtx): Promise<void> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new ConvexError("You are signed out. Sign in and try again");
-  if (!hasPlan(identity.pla, PAID_PLAN)) {
-    throw new ConvexError("An active Ferry subscription is required");
-  }
 }
 
 export async function currentUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {

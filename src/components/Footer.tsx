@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { track } from "../lib/analytics";
 import { FooterMark } from "./icons";
 
 const linkClass = "font-semibold text-text-muted text-xs/3.5 hover:text-text transition-colors";
@@ -9,6 +10,13 @@ const LINKS = [
   { to: "/support", label: "Support" },
 ];
 
+// Liberapay, not Ko-fi or Buy Me a Coffee: it is the one platform whose model is
+// donations only, so nothing here is a promise of recompense. Donating must
+// never affect access — that is what keeps this a gift rather than a price, and
+// keeps EarFerry outside KVK's "je vraagt een prijs of tarief" test.
+// See docs/research/billing-options.md.
+const DONATE_URL = "https://liberapay.com/earferry/donate";
+
 export function Footer() {
   return (
     <footer className="mt-auto flex items-center justify-center pt-8 pb-10 gap-5 sm:pt-12 sm:pb-20 sm:gap-6">
@@ -18,6 +26,15 @@ export function Footer() {
           {link.label}
         </Link>
       ))}
+      <a
+        href={DONATE_URL}
+        target="_blank"
+        rel="noreferrer noopener"
+        onClick={() => track("donate_clicked")}
+        className={linkClass}
+      >
+        Donate
+      </a>
     </footer>
   );
 }
