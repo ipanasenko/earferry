@@ -20,11 +20,15 @@ Convex URL via `bunx convex dev`).
 
 ### Billing (Polar)
 
-Billing runs on Polar as merchant of record. Sandbox and production are separate
-Polar organizations, so each needs its own products, token and webhook. Create
-two recurring products per organization, $9/month and $79/year; the subscribe
-page reads the interval off each product's price and shows yearly first. Per
-Convex deployment:
+Billing runs on Polar as merchant of record, under an **Individual** account:
+that keeps Stripe onboarding on the personal-identity path, which needs an ID
+and an IBAN rather than a Dutch KVK number.
+
+Polar's sandbox is a fully separate instance at `sandbox.polar.sh` with its own
+user account, organization and tokens; production tokens do not work there.
+Create two recurring products per organization, $9/month and $79/year; the
+subscribe page reads the interval off each product's price and shows yearly
+first. Per Convex deployment:
 
 ```sh
 bunx convex env set POLAR_ORGANIZATION_TOKEN <organization token>
