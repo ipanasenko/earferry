@@ -17,8 +17,8 @@ initAnalytics();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ClerkProvider publishableKey={clerkPublishableKey}>
-      <AnalyticsIdentity />
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <AnalyticsIdentity />
         <BrowserRouter>
           <App />
         </BrowserRouter>

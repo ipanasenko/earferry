@@ -37,6 +37,12 @@ jobs:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
           VITE_POSTHOG_KEY: ${{ vars.VITE_POSTHOG_KEY }}
 
+      - name: Install browser
+        run: bunx playwright install --with-deps chromium
+
+      - name: Smoke test homepage
+        run: bun run test:e2e
+
   deploy:
     if: github.event_name == 'push'
     needs: checks
