@@ -17,7 +17,7 @@ import {
   youtubeVideoId,
   describeFailure,
 } from "./domain";
-import { currentUser, getOrCreateUser, requirePaidEntitlement } from "./users";
+import { currentUser, getOrCreateUser } from "./users";
 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 
@@ -163,7 +163,6 @@ export const list = query({
 export const add = mutation({
   args: { url: v.string() },
   handler: async (ctx, args) => {
-    await requirePaidEntitlement(ctx);
     const url = normalizeYouTubeUrl(args.url);
     const videoId = youtubeVideoId(url);
     const user = await getOrCreateUser(ctx);
@@ -230,7 +229,6 @@ export const remove = mutation({
 export const retry = mutation({
   args: { id: v.id("items") },
   handler: async (ctx, args) => {
-    await requirePaidEntitlement(ctx);
     const item = await ownedItem(ctx, args.id);
     if (
       !["failed", "waiting", "ready", "extracting", "uploading", "queued", "probing"].includes(

@@ -1,4 +1,4 @@
-import { SignUpButton } from "@clerk/clerk-react";
+import { Link } from "react-router-dom";
 import { track } from "../lib/analytics";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
@@ -32,16 +32,14 @@ export function LandingPage() {
             can play anywhere.
           </p>
           <div className="flex flex-col items-center gap-3">
-            <SignUpButton mode="modal">
-              <button
-                type="button"
-                onClick={() => track("signup_clicked")}
-                className="flex items-center h-13 px-7 rounded-pill shrink-0 shadow-cta bg-ink font-semibold text-background text-base/4.5 cursor-pointer hover:opacity-90 transition-opacity"
-              >
-                Get started · $9/month
-              </button>
-            </SignUpButton>
-            <div className="text-text-muted text-sm/4">One plan. Cancel anytime.</div>
+            <Link
+              to="/join"
+              onClick={() => track("waitlist_clicked")}
+              className="flex items-center h-13 px-7 rounded-pill shrink-0 shadow-cta bg-ink font-semibold text-background text-base/4.5 cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              Join the waitlist
+            </Link>
+            <div className="text-text-muted text-sm/4">Free while it's small. Invite-only.</div>
           </div>
         </section>
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
