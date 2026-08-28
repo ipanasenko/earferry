@@ -42,7 +42,7 @@ MP3 and serves it through a private tokenized RSS feed for podcast clients.
 | --- | --- | --- | --- | --- |
 | Local | Vite localhost | Development | Development | Disabled when unset |
 | Shared development | `earferry.earferry.workers.dev` | Development | Development | Disabled |
-| PR preview | `pr-<number>-earferry.earferry.workers.dev` | Development | Development | Disabled |
+| PR preview | `pr-<number>-earferry.earferry.workers.dev` | Development | Preview `pr-<number>` | Disabled |
 | Production | `earferry.com` / `www.earferry.com` | Production | Production | Production |
 
 `bun run deploy:dev` updates the shared development Worker from `.env.local`.
@@ -51,6 +51,22 @@ those versions are not promoted to shared-development traffic. Only pushes to
 `main` deploy Convex production and the custom-domain Worker. Preview builds
 from forks are skipped because GitHub does not expose deployment secrets to
 fork workflows.
+
+Each pull request gets its own Convex preview deployment, created by
+`convex deploy --preview-name pr-<number>` with the `CONVEX_PREVIEW_DEPLOY_KEY`
+secret. Preview backends have separate functions, schema, data and schedules, so
+concurrent PRs cannot overwrite each other and a frontend preview always matches
+the backend it was built against. `scripts/preview-build.sh` derives the
+matching `.convex.site` origin and passes it to the Worker as `CONVEX_SITE_URL`,
+so `/feed/*` proxies to the same backend.
+
+Preview backends inherit the project's Convex preview default environment
+variables, which hold only `CLERK_JWT_ISSUER_DOMAIN` (development Clerk).
+`EXTRACTOR_URL`, `INTERNAL_SECRET`, `MEDIA_BASE_URL` and `POSTHOG_KEY` are
+deliberately unset there: a preview can exercise auth, UI, schema, queries and
+mutations, but cannot enqueue real extraction work or emit analytics. Convex
+removes unused preview deployments automatically, so closing a PR needs no
+cleanup step.
 
 ## Extractor Worker contract (Convex <-> earferry-extractor Worker)
 

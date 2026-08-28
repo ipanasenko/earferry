@@ -59,16 +59,28 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Build development preview
-        run: bun run build
+      # Creates or updates an isolated Convex backend named pr-<number> and
+      # builds the frontend against it, so one PR can never overwrite another
+      # PR's functions, schema or data. The preview backend inherits only the
+      # project's preview default environment variables (the development Clerk
+      # issuer), so it cannot reach the extractor or PostHog.
+      - name: Deploy Convex preview + build frontend
+        run: >-
+          bunx convex deploy
+          --preview-name "pr-${{ github.event.pull_request.number }}"
+          --cmd 'bash scripts/preview-build.sh'
+          --cmd-url-env-var-name VITE_CONVEX_URL
         env:
-          VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL_DEVELOPMENT }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY_DEVELOPMENT }}
 
+      # CONVEX_SITE_URL is written to GITHUB_ENV by scripts/preview-build.sh and
+      # overrides the shared development origin in wrangler.dev.jsonc.
       - name: Upload PR preview
         run: >-
           bun run preview:upload --
           --preview-alias "pr-${{ github.event.pull_request.number }}"
+          --var CONVEX_SITE_URL:"$CONVEX_SITE_URL"
           --tag "${GITHUB_SHA::9}"
           --message "PR #${{ github.event.pull_request.number }}: $(git log -1 --format=%s)"
         env:

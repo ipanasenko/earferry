@@ -26,10 +26,10 @@ bun run deploy:dev
 
 This builds with `.env.local`, disables PostHog, and updates
 `earferry.earferry.workers.dev`. Pull requests from this repository receive a
-development preview at
-`pr-<number>-earferry.earferry.workers.dev`. Both use development Clerk and
-Convex; pushes to `main` use production Clerk and Convex and deploy to
-`earferry.com` through GitHub Actions.
+preview at `pr-<number>-earferry.earferry.workers.dev`, backed by development
+Clerk and an isolated `pr-<number>` Convex preview deployment. Pushes to `main`
+use production Clerk and Convex and deploy to `earferry.com` through GitHub
+Actions.
 
 ## Stack
 
