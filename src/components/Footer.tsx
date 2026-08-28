@@ -17,7 +17,11 @@ const LINKS = [
 // See docs/research/billing-options.md.
 const DONATE_URL = "https://liberapay.com/earferry/donate";
 
-export function Footer() {
+/**
+ * `donate` is opt-out because one page must never show the link: the waitlist.
+ * Money must not look like the way in. See docs/ARCHITECTURE.md.
+ */
+export function Footer({ donate = true }: { donate?: boolean }) {
   return (
     <footer className="mt-auto flex items-center justify-center pt-8 pb-10 gap-5 sm:pt-12 sm:pb-20 sm:gap-6">
       <FooterMark />
@@ -26,15 +30,17 @@ export function Footer() {
           {link.label}
         </Link>
       ))}
-      <a
-        href={DONATE_URL}
-        target="_blank"
-        rel="noreferrer noopener"
-        onClick={() => track("donate_clicked")}
-        className={linkClass}
-      >
-        Donate
-      </a>
+      {donate && (
+        <a
+          href={DONATE_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={() => track("donate_clicked")}
+          className={linkClass}
+        >
+          Donate
+        </a>
+      )}
     </footer>
   );
 }

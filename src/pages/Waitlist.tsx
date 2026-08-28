@@ -7,8 +7,12 @@ import { Footer } from "../components/Footer";
  *
  * Clerk owns the list itself: the instance runs in `waitlist` sign-up mode, so
  * nobody can create an account until an entry is approved in the dashboard.
- * There is deliberately no donation link on this page — money must never look
- * like the way in.
+ *
+ * The card is restyled by the `.waitlist-form` rules in index.css, which strip
+ * Clerk's own wordmark, title and subtitle — they would otherwise repeat the
+ * page heading and the header logo three times over — and turn the field and
+ * button into EarFerry pills. Clerk's "Secured by Clerk" footer stays; only the
+ * "Already have access?" row is hidden, since the header already offers Sign in.
  */
 export function WaitlistPage() {
   return (
@@ -23,14 +27,15 @@ export function WaitlistPage() {
             EarFerry is free and invite-only while it is small. Leave your email and I will let
             people in as capacity allows.
           </p>
-          <div className="w-full max-w-[420px] pt-4">
+          <div className="waitlist-form w-full max-w-[360px] pt-2">
             <Waitlist />
           </div>
           <p className="text-text-muted text-sm/4 text-center">
             No payment, now or later. Donations are welcome and change nothing.
           </p>
         </section>
-        <Footer />
+        {/* No donate link here on purpose: money must not look like the way in. */}
+        <Footer donate={false} />
       </div>
     </div>
   );
