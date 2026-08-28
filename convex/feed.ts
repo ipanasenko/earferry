@@ -113,12 +113,14 @@ export async function buildFeed(
   items: Array<Doc<"items">>,
   origin: string,
   feedToken: string,
+  displayName?: string,
 ): Promise<string> {
   const base = origin.replace(/\/$/, "");
   const feedUrl = `${base}/feed/${encodeURIComponent(feedToken)}`;
   // Channel art: the app serves the logo as a static asset.
   const channelArtUrl = process.env.CHANNEL_ART_URL ?? null;
   const feedDescription = "YouTube videos saved for listening later.";
+  const feedName = displayName ? `EarFerry · Captained by ${displayName}` : "EarFerry";
   // Items store their signed Worker media URL when they become ready; sign on
   // the fly for anything that predates that.
   const mediaUrls = await Promise.all(
@@ -157,11 +159,11 @@ export async function buildFeed(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:psc="http://podlove.org/simple-chapters">
   <channel>
-    <title>EarFerry</title>
+    <title>${xml(feedName)}</title>
     <link>${xml(base)}</link>
     <description>${xml(feedDescription)}</description>
     <language>en</language>
-    <itunes:author>EarFerry</itunes:author>
+    <itunes:author>${xml(feedName)}</itunes:author>
     <itunes:summary>${xml(feedDescription)}</itunes:summary>
     <itunes:explicit>false</itunes:explicit>${
       channelArtUrl
@@ -169,7 +171,7 @@ export async function buildFeed(
     <itunes:image href="${xml(channelArtUrl)}" />
     <image>
       <url>${xml(channelArtUrl)}</url>
-      <title>EarFerry</title>
+      <title>${xml(feedName)}</title>
       <link>${xml(base)}</link>
     </image>`
         : ""

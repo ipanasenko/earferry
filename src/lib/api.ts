@@ -52,6 +52,7 @@ interface EarferryApi {
   };
   users: {
     me: PublicQuery<Record<string, never>, { feedUrl: string | null }>;
+    syncProfile: PublicMutation<{ displayName: string }, null>;
     rotateFeedToken: PublicMutation<Record<string, never>, { feedUrl: string }>;
   };
 }
