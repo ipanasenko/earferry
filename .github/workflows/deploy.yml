@@ -94,6 +94,7 @@ jobs:
         run: >-
           bunx convex deploy
           --preview-name "pr-${{ github.event.pull_request.number }}"
+          --preview-run feeds:seedSampleFeed
           --cmd 'bash scripts/preview-build.sh'
           --cmd-url-env-var-name VITE_CONVEX_URL
         env:
@@ -112,6 +113,19 @@ jobs:
           --message "PR #${{ github.event.pull_request.number }}: $(git log -1 --format=%s)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # The checks job runs these against `vite preview`, which serves only the
+      # static bundle. Here they run against the real Worker and this PR's own
+      # Convex backend, so routing, the /feed/* proxy and the feed itself are
+      # covered. The preview cannot reach the extractor, so its seeded episodes
+      # never become ready and the playable-audio test stays off.
+      - name: End-to-end tests against the preview
+        if: steps.guard.outputs.enabled == 'true'
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: https://pr-${{ github.event.pull_request.number }}-earferry.earferry.workers.dev
 
       - name: Publish preview URL
         if: steps.guard.outputs.enabled == 'true'
@@ -159,3 +173,15 @@ jobs:
           --message "$(git log -1 --format=%s)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}
+
+      # Production is the only origin that serves extracted audio, so this is
+      # where the demo feed is checked end to end. EARFERRY_FEED_TOKEN is
+      # optional; without it the private-feed test skips rather than fails.
+      - name: Smoke test the live feeds
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: https://earferry.com
+          EARFERRY_FEED_HAS_MEDIA: "1"
+          EARFERRY_FEED_TOKEN: ${{ secrets.EARFERRY_FEED_TOKEN }}

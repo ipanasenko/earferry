@@ -12,6 +12,25 @@ import { isExpiredReady, normalizeYouTubeUrl, youtubeVideoId } from "./domain";
 
 export const SAMPLE_FEED_SLUG = "sample";
 
+/**
+ * The ten Sample Crossings, published on EarFerry's own YouTube channel. Held
+ * here rather than passed in so `convex deploy --preview-run` can seed a fresh
+ * preview deployment with no arguments, and so every deployment ends up with
+ * the same showroom.
+ */
+export const SAMPLE_CROSSING_URLS = [
+  "https://www.youtube.com/watch?v=m0BY3VGZppw",
+  "https://www.youtube.com/watch?v=BQsva8tluKc",
+  "https://www.youtube.com/watch?v=Kq6ooovtrGQ",
+  "https://www.youtube.com/watch?v=gy1OC72og_0",
+  "https://www.youtube.com/watch?v=fTlBZsEAHO0",
+  "https://www.youtube.com/watch?v=rROruufu6NE",
+  "https://www.youtube.com/watch?v=KkpxZinP25A",
+  "https://www.youtube.com/watch?v=KYrvw5bwVB0",
+  "https://www.youtube.com/watch?v=8JIFsJB0TzE",
+  "https://www.youtube.com/watch?v=n0Sih23t3Ww",
+];
+
 const SAMPLE_FEED_TITLE = "EarFerry · Sample Crossings";
 const SAMPLE_FEED_DESCRIPTION =
   "Ten short, original AI-narrated episodes demonstrating how EarFerry looks and plays in a podcast app.";
@@ -182,15 +201,14 @@ export const backfill = internalMutation({
 });
 
 /**
- * Fills the public showroom. Takes the YouTube URLs rather than hard-coding
- * them, because the ten Sample Crossings live on a channel this code has no
- * way to enumerate. Idempotent: a URL already in the feed is skipped, so the
- * command can be re-run after a partial failure.
+ * Fills the public showroom. Idempotent: a URL already in the feed is skipped,
+ * so this can be re-run after a partial failure, and it is safe as the
+ * `--preview-run` hook on every preview deployment.
  *
- *   npx convex run feeds:seedSampleFeed '{"urls": ["https://youtu.be/..."]}'
+ *   npx convex run --prod feeds:seedSampleFeed
  */
 export const seedSampleFeed = internalMutation({
-  args: { urls: v.array(v.string()) },
+  args: { urls: v.optional(v.array(v.string())) },
   handler: async (ctx, args) => {
     const feed = await getOrCreateSampleFeed(ctx);
 
@@ -199,7 +217,7 @@ export const seedSampleFeed = internalMutation({
     let position = existing.reduce((top, item) => Math.max(top, item.position), 0);
     let added = 0;
 
-    for (const raw of args.urls) {
+    for (const raw of args.urls ?? SAMPLE_CROSSING_URLS) {
       const url = normalizeYouTubeUrl(raw);
       const videoId = youtubeVideoId(url);
       if (existing.some((item) => item.videoId === videoId)) continue;
