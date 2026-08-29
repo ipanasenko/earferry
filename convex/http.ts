@@ -40,7 +40,7 @@ http.route({
     if (!found) return json({ error: "Not found" }, 404);
     const { feed, owner, items } = found;
 
-    await capture("feed_fetched", owner?.clerkId ?? `feed:${feed.slug ?? feed._id}`);
+    await capture("feed_fetched", owner?.clerkId ?? `feed:${feed.slug ?? "private"}`);
     // feedBaseUrl, not url.origin: behind the site's /feed/* proxy the request
     // origin is still *.convex.site, which would leak into the self-link.
     const xml = await buildFeed(items, feedBaseUrl(), feed, owner?.displayName);
