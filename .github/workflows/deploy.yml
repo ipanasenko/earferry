@@ -3,14 +3,8 @@ name: Deploy
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "android/**"
-      - ".github/workflows/android-release.yml"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "android/**"
-      - ".github/workflows/android-release.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

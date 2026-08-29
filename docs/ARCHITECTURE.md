@@ -151,9 +151,12 @@ out, and signing in with an OAuth provider leaves the page and comes back at an
 address of Clerk's choosing, without the query string. While the link waits, the
 landing page says so — a silent share is indistinguishable from a dropped one.
 
-`android/` holds the sideloaded APK this replaced: a share activity that opened
-`earferry.com/?add=<url>` in the default browser and nothing else. It is
-redundant now and kept only until the share target is confirmed on a device.
+This replaced a sideloaded APK (removed 2026-08-29, last at commit `a876fc5`):
+a share activity that opened `earferry.com/?add=<url>` in the default browser
+and nothing else. The share target does the same from the installed PWA, and
+drops a signing key, a release asset and a versionCode counter from CI. The
+trade is reach: share targets are Chromium-only, so Firefox Android no longer
+has an entry, and the PWA has to be installed before Chrome will offer it.
 
 ## Feed & media
 
