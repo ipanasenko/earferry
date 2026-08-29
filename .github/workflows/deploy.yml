@@ -94,12 +94,22 @@ jobs:
         run: >-
           bunx convex deploy
           --preview-name "pr-${{ github.event.pull_request.number }}"
-          --preview-run feeds:seedSampleFeed
           --cmd 'bash scripts/preview-build.sh'
           --cmd-url-env-var-name VITE_CONVEX_URL
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY_DEVELOPMENT }}
+
+      # Not `convex deploy --preview-run`: that only fires when the preview
+      # backend is newly created, so a PR's second push would test an empty
+      # showroom. seedSampleFeed is idempotent, so running it every time is
+      # both correct and cheap. CONVEX_DEPLOYMENT_NAME comes from
+      # scripts/preview-build.sh.
+      - name: Seed the preview showroom
+        if: steps.guard.outputs.enabled == 'true'
+        run: bunx convex run --deployment "$CONVEX_DEPLOYMENT_NAME" feeds:seedSampleFeed
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
 
       # CONVEX_SITE_URL is written to GITHUB_ENV by scripts/preview-build.sh and
       # overrides the shared development origin in wrangler.dev.jsonc.
