@@ -23,20 +23,14 @@ describe("feed resolution", () => {
     expect(found!.owner?.displayName).toBe("Ava");
   });
 
-  test("resolves a migrated user by their feed token", async () => {
+  test("resolves a user by their feed token", async () => {
     const t = testConvex();
     const feedToken = "migrated-token";
     await t.run(async (ctx) => {
       const feedId = await ctx.db.insert("feeds", { feedToken, createdAt: 0 });
-      const userId = await ctx.db.insert("users", {
-        clerkId: "clerk|migrated",
-        feedId,
-        feedToken,
-        createdAt: 0,
-      });
+      await ctx.db.insert("users", { clerkId: "clerk|migrated", feedId, createdAt: 0 });
       await ctx.db.insert("items", {
         feedId,
-        userId,
         url: "https://www.youtube.com/watch?v=abcdefghijk",
         videoId: "abcdefghijk",
         addedAt: 0,
@@ -74,12 +68,7 @@ describe("feed resolution", () => {
     const feedToken = "filter-token";
     await t.run(async (ctx) => {
       const feedId = await ctx.db.insert("feeds", { feedToken, createdAt: 0 });
-      await ctx.db.insert("users", {
-        clerkId: "clerk|filter",
-        feedId,
-        feedToken,
-        createdAt: 0,
-      });
+      await ctx.db.insert("users", { clerkId: "clerk|filter", feedId, createdAt: 0 });
       const base = {
         feedId,
         url: "https://www.youtube.com/watch?v=abcdefghijk",
