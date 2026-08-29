@@ -1,0 +1,92 @@
+[
+  {
+    "number": "01",
+    "slug": "port-and-starboard",
+    "title": "Why ships use port and starboard",
+    "subtitle": "Two old words that keep everyone looking the same way.",
+    "description": "Why do sailors say port and starboard instead of left and right? A short EarFerry Sample Crossing through the history and safety logic behind two nautical words.",
+    "script": "scripts/01-port-and-starboard-long.txt",
+    "file": "01-port-and-starboard-branded.mp4"
+  },
+  {
+    "number": "02",
+    "slug": "recorded-voice",
+    "title": "Why your recorded voice sounds unfamiliar",
+    "subtitle": "The voice in your head takes a different route to your ears.",
+    "description": "Why does your recorded voice sound so different? A short EarFerry Sample Crossing through air conduction, bone conduction, and the voice everyone else already knows.",
+    "script": "scripts/02-recorded-voice-long.txt",
+    "file": "02-recorded-voice-branded.mp4"
+  },
+  {
+    "number": "03",
+    "slug": "podcast-feed",
+    "title": "How podcast apps find new episodes",
+    "subtitle": "A quiet little document keeps your library moving.",
+    "description": "How does a podcast app know when a new episode appears? A short EarFerry Sample Crossing through RSS feeds, polling, GUIDs, and audio enclosures.",
+    "script": "scripts/03-podcast-feed-long.txt",
+    "file": "03-podcast-feed-branded.mp4"
+  },
+  {
+    "number": "04",
+    "slug": "amsterdam-ferries",
+    "title": "Why Amsterdam’s ferries feel like streets",
+    "subtitle": "Public transport becomes a brief view across the water.",
+    "description": "A short EarFerry Sample Crossing aboard the free ferries behind Amsterdam Central Station and the moving streets they create across the IJ.",
+    "script": "scripts/04-amsterdam-ferries-long.txt",
+    "file": "04-amsterdam-ferries-branded.mp4"
+  },
+  {
+    "number": "05",
+    "slug": "pause-button",
+    "title": "Where the pause symbol came from",
+    "subtitle": "Two vertical bars became a universal moment of stillness.",
+    "description": "Why does pause look like two vertical bars? A short EarFerry Sample Crossing through tape, musical notation, and the symbols we learn without noticing.",
+    "script": "scripts/05-pause-button-long.txt",
+    "file": "05-pause-button-branded.mp4"
+  },
+  {
+    "number": "06",
+    "slug": "containers",
+    "title": "How shipping containers changed the world",
+    "subtitle": "One ordinary steel box simplified millions of handoffs.",
+    "description": "A short EarFerry Sample Crossing through the standardized steel box that reshaped ports, ships, trade, and the movement of everyday goods.",
+    "script": "scripts/06-containers-long.txt",
+    "file": "06-containers-branded.mp4"
+  },
+  {
+    "number": "07",
+    "slug": "headphones",
+    "title": "Why headphones feel like a private room",
+    "subtitle": "Two tiny speakers create a space no one else can enter.",
+    "description": "A short EarFerry Sample Crossing through stereo sound, acoustic crossfeed, spatial illusion, and the intimate listening room between your ears.",
+    "script": "scripts/07-headphones-long.txt",
+    "file": "07-headphones-branded.mp4"
+  },
+  {
+    "number": "08",
+    "slug": "lighthouses",
+    "title": "How lighthouses introduce themselves",
+    "subtitle": "The darkness between flashes is part of the message.",
+    "description": "A short EarFerry Sample Crossing through lighthouse characteristics, distinctive flash patterns, navigation charts, and identity after dark.",
+    "script": "scripts/08-lighthouses-long.txt",
+    "file": "08-lighthouses-branded.mp4"
+  },
+  {
+    "number": "09",
+    "slug": "saved-for-later",
+    "title": "The quiet value of saving something for later",
+    "subtitle": "Discovery and attention do not have to happen together.",
+    "description": "A short EarFerry Sample Crossing about separating discovery from attention and building a calmer relationship with interesting things.",
+    "script": "scripts/09-saved-for-later-long.txt",
+    "file": "09-saved-for-later-branded.mp4"
+  },
+  {
+    "number": "10",
+    "slug": "sound-over-water",
+    "title": "Why sound travels so well over water",
+    "subtitle": "On the right evening, the far shore feels much closer.",
+    "description": "A short EarFerry Sample Crossing through temperature inversions, sound refraction, smooth surfaces, and distant voices across a lake.",
+    "script": "scripts/10-sound-over-water-long.txt",
+    "file": "10-sound-over-water-branded.mp4"
+  }
+]

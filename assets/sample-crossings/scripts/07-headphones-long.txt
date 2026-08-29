@@ -1,0 +1,16 @@
+Put on a pair of headphones and a private room appears. The walls are imaginary, the performers may be thousands of kilometres away, and yet the sound seems to occupy a space somewhere between and around your ears.
+
+That experience differs from listening to speakers in a room. With speakers, the left ear hears the left speaker strongly, but it also hears the right speaker a fraction later. The right ear receives the opposite mixture. Reflections arrive from walls, the ceiling, furniture, and the floor. Your brain uses all of those timing and frequency differences to estimate where sounds are located.
+
+Headphones simplify the paths. The left channel enters almost only the left ear, and the right channel almost only the right. Engineers call the missing overlap crossfeed. Without it, a sound placed fully to one side can feel as though it sits directly beside or even inside that ear rather than somewhere naturally in front of you.
+
+Recordings create position through several cues. A sound that is louder on the left appears leftward. Tiny timing differences can move it too. Changes in tone imitate the filtering performed by your head and outer ears. Modern spatial audio systems add motion tracking and more detailed acoustic models, attempting to keep a virtual soundstage stable while your head turns.
+
+Even ordinary stereo can be remarkably convincing. A voice shared equally between both channels often appears in the centre, despite there being no physical speaker there. Reverb suggests the size of a room that does not exist. A close, dry recording can feel more intimate than someone speaking across a table.
+
+The physical design matters as well. Open-back headphones allow outside sound and often create an airier impression. Closed-back models isolate more strongly. Noise cancellation listens to the environment and adds an opposing signal to reduce steady sounds such as engines and ventilation.
+
+The result is not complete silence. It is selective attention shaped by two small speakers and a great deal of perception. Headphones do not merely deliver sound closer to your ears. They let your brain construct a listening room that travels with you.
+
+This Sample Crossing was carried from YouTube into a podcast feed by EarFerry.
+

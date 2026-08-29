@@ -1,0 +1,18 @@
+When a new podcast episode appears in your library, it can feel as though the publisher sent it directly to your phone. Usually, nothing was pushed at all. Your podcast app went looking for it.
+
+At the centre of the process is an RSS feed: a small text document published at a stable web address. It describes the show and lists its episodes in a structure that software can understand. The feed may include the show title, description, artwork, author, language, and categories. Each episode adds its own title, publication date, notes, duration, and audio address.
+
+That audio address appears in a field called an enclosure. It tells the podcast app where the MP3 or other media file lives. The feed is therefore more like a continually updated table of contents than a container holding all the audio itself.
+
+Every so often, the app revisits the feed and asks whether it has changed. This is called polling. Some apps poll frequently; others conserve battery and network traffic by waiting longer. Publishers and large podcast platforms may also use faster notification systems, but polling remains the dependable foundation.
+
+To recognize an episode it has already seen, the app looks at a persistent identifier called a GUID. If a title is corrected later, the GUID can stay the same, telling the app that this is an update to an existing episode rather than something entirely new.
+
+Once the app finds a new GUID, it can display the episode, download the enclosure automatically, or wait until you press play. Different schedules and caching layers explain why two listeners may see the same release several minutes apart.
+
+The elegance of RSS is that the publisher controls the feed while listeners choose their own apps. No single podcast player needs to own the relationship. Subscribe once, and the app keeps returning to the same address for whatever arrives next.
+
+EarFerry uses that same open mechanism. A video you choose becomes an audio enclosure, a feed entry appears, and your podcast app discovers it during one of those quiet return visits.
+
+This Sample Crossing was carried from YouTube into a podcast feed by EarFerry.
+
