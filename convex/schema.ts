@@ -13,17 +13,48 @@ export const itemStatus = v.union(
 );
 
 export default defineSchema({
+  // A feed is the thing a podcast app subscribes to, and the thing items belong
+  // to. Most feeds are private and owned by one user; the public demo showroom
+  // is a feed with no owner. Keeping this separate from `users` is what stops
+  // the public feed from needing a fake Clerk account.
+  feeds: defineTable({
+    feedToken: v.string(),
+    // Set only on public feeds, which are reachable at /feed/{slug}. A private
+    // feed has no slug and is reachable only by its unguessable token.
+    slug: v.optional(v.string()),
+    // Public feeds carry their own branding. A private feed takes its title
+    // from its owner's display name instead.
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    // A permanent feed is a showroom: its episodes are never given an
+    // `expiresAt`, so the demo enclosures cannot go dead underneath the
+    // homepage. Nothing else in the system deletes ready audio.
+    permanent: v.optional(v.boolean()),
+    createdAt: v.number(),
+  })
+    .index("by_feed_token", ["feedToken"])
+    .index("by_slug", ["slug"]),
+
   users: defineTable({
     clerkId: v.string(),
+    // Optional only until the backfill has run everywhere; every user created
+    // from now on gets one. See internal.feeds.backfill.
+    feedId: v.optional(v.id("feeds")),
     feedToken: v.string(),
     displayName: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_clerk_id", ["clerkId"])
+    .index("by_feed", ["feedId"])
     .index("by_feed_token", ["feedToken"]),
 
   items: defineTable({
-    userId: v.id("users"),
+    // feedId is optional only until the backfill has run everywhere; reads go
+    // through it. userId is written alongside during the transition and dropped
+    // once prod is migrated. It is optional for good: the public demo feed has
+    // no owner, so its items never had a user to point at.
+    feedId: v.optional(v.id("feeds")),
+    userId: v.optional(v.id("users")),
     url: v.string(),
     videoId: v.string(),
     title: v.optional(v.string()),
@@ -53,8 +84,9 @@ export default defineSchema({
     artworkUrl: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
   })
+    .index("by_feed", ["feedId", "position"])
+    .index("by_feed_video", ["feedId", "videoId"])
     .index("by_user", ["userId", "position"])
-    .index("by_user_video", ["userId", "videoId"])
     .index("by_status_expires", ["status", "expiresAt"])
     .index("by_status_next", ["status", "nextAttemptAt"]),
 });

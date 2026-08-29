@@ -3,6 +3,7 @@ import { track } from "../lib/analytics";
 import { usePageMeta } from "../lib/meta";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
+import { SampleFeedCard } from "../components/SampleFeedCard";
 
 const FEATURES = [
   {
@@ -52,7 +53,8 @@ export function LandingPage() {
             <div className="text-text-muted text-sm/4">Free while it's small. Invite-only.</div>
           </div>
         </section>
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SampleFeedCard />
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
           {FEATURES.map((feature) => (
             <div key={feature.title} className="flex flex-col p-7 rounded-md gap-2.5 bg-background">
               <div className="font-semibold text-text text-base/4.5">{feature.title}</div>

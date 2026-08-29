@@ -1,5 +1,7 @@
 import { StaticPageLayout } from "./StaticPage";
 import { usePageMeta } from "../lib/meta";
+import { PodcastAppSteps } from "../components/PodcastAppSteps";
+import { SAMPLE_FEED_PATH } from "../lib/sampleFeed";
 
 const FAQ = [
   {
@@ -20,7 +22,7 @@ export function SupportPage() {
   usePageMeta({
     title: "Support · EarFerry",
     description:
-      "Fixes for failed extractions, feeds that show no new episodes, and leaked feed URLs.",
+      "How to add an EarFerry feed to your podcast app, plus fixes for failed extractions, feeds that show no new episodes, and leaked feed URLs.",
     path: "/support",
   });
 
@@ -34,6 +36,19 @@ export function SupportPage() {
       }
     >
       <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col py-5 px-5.5 rounded-md gap-3.5 shadow-card bg-background">
+          <div className="flex flex-col gap-1.5">
+            <h2 className="font-semibold text-text text-lg/base">
+              How do I add a feed to my podcast app?
+            </h2>
+            <p className="text-text-muted text-base/base">
+              Copy your feed URL, then paste it into the &ldquo;add by URL&rdquo; flow of your app.
+              The public demo feed at earferry.com{SAMPLE_FEED_PATH} works the same way if you want
+              to practise first.
+            </p>
+          </div>
+          <PodcastAppSteps />
+        </div>
         {FAQ.map((entry) => (
           <div
             key={entry.title}

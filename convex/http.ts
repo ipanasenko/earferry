@@ -3,7 +3,7 @@ import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { buildFeed, signedArtworkUrl, signedMediaUrl } from "./feed";
-import { feedBaseUrl } from "./users";
+import { feedBaseUrl } from "./feeds";
 import { capture } from "./analytics";
 
 const http = httpRouter();
@@ -27,21 +27,30 @@ http.route({
   method: "GET",
   handler: httpAction(async (ctx, request) => {
     const url = new URL(request.url);
-    const feedToken = decodeURIComponent(url.pathname.slice("/feed/".length)).replace(/\.xml$/, "");
-    if (!feedToken) return json({ error: "Not found" }, 404);
+    // One path segment resolves either shape: a public feed's slug or a private
+    // feed's token. The public demo feed is an ownerless row in `feeds`, so it
+    // needs no account, no env var, and no special case here.
+    const tokenOrSlug = decodeURIComponent(url.pathname.slice("/feed/".length)).replace(
+      /\.xml$/,
+      "",
+    );
+    if (!tokenOrSlug) return json({ error: "Not found" }, 404);
 
-    const user = await ctx.runQuery(internal.items.userByFeedToken, { feedToken });
-    if (!user) return json({ error: "Not found" }, 404);
+    const found = await ctx.runQuery(internal.items.feedForRequest, { tokenOrSlug });
+    if (!found) return json({ error: "Not found" }, 404);
+    const { feed, owner, items } = found;
 
-    await capture("feed_fetched", user.clerkId);
-    const items = await ctx.runQuery(internal.items.readyItemsForUser, { userId: user._id });
+    await capture("feed_fetched", owner?.clerkId ?? `feed:${feed.slug ?? feed._id}`);
     // feedBaseUrl, not url.origin: behind the site's /feed/* proxy the request
     // origin is still *.convex.site, which would leak into the self-link.
-    const xml = await buildFeed(items, feedBaseUrl(), user.feedToken, user.displayName);
+    const xml = await buildFeed(items, feedBaseUrl(), feed, owner?.displayName);
     return new Response(xml, {
       headers: {
         "content-type": "application/rss+xml; charset=utf-8",
-        "cache-control": "no-cache",
+        // A private feed must always answer with the queue as it stands. A
+        // public feed is a fixed showroom shared from the homepage, so a short
+        // shared cache is safe and keeps a burst of visitors off the database.
+        "cache-control": feed.slug ? "public, max-age=300" : "no-cache",
       },
     });
   }),
@@ -77,15 +86,15 @@ http.route({
     if (!body?.itemId) return json({ error: "itemId is required" }, 400);
     const itemId = body.itemId as Id<"items">;
 
-    const found = await ctx.runQuery(internal.items.itemWithUser, { itemId }).catch(() => null);
+    const found = await ctx.runQuery(internal.items.itemWithFeed, { itemId }).catch(() => null);
     if (!found) return json({ error: "Item not found" }, 404);
     if (found.item.status === "ready") return json({ ready: true, ignored: true });
 
     // Signed once here (crypto.subtle is available in HTTP actions) and stored
     // on the item, so queries can return it without signing.
-    const mediaUrl = await signedMediaUrl(found.user.feedToken, itemId);
+    const mediaUrl = await signedMediaUrl(found.feed.feedToken, itemId);
     const artworkUrl = body.artwork
-      ? await signedArtworkUrl(found.user.feedToken, itemId)
+      ? await signedArtworkUrl(found.feed.feedToken, itemId)
       : undefined;
     const published = await ctx.runMutation(internal.items.markReady, {
       itemId,
@@ -103,7 +112,7 @@ http.route({
     // A rejected completion makes the Worker delete the R2 objects the stale
     // attempt just published under this item's key.
     if (!published) return json({ error: "Extraction attempt is no longer active" }, 409);
-    await capture("extraction_completed", found.user.clerkId, {
+    await capture("extraction_completed", found.owner?.clerkId ?? String(itemId), {
       item_id: itemId,
       video_id: found.item.videoId,
     });
@@ -135,9 +144,9 @@ http.route({
       attempt: typeof body.attempt === "string" ? body.attempt : undefined,
     });
     const found = await ctx
-      .runQuery(internal.items.itemWithUser, { itemId: body.itemId as Id<"items"> })
+      .runQuery(internal.items.itemWithFeed, { itemId: body.itemId as Id<"items"> })
       .catch(() => null);
-    await capture("extraction_failed", found?.user.clerkId ?? body.itemId, {
+    await capture("extraction_failed", found?.owner?.clerkId ?? body.itemId, {
       item_id: body.itemId,
       reason: detail.slice(0, 200),
     });
