@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 test-results
+android/build/
+android/.debug/
 *.local
 
 # Wrangler local dev state (Miniflare)
