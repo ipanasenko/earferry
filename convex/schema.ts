@@ -37,25 +37,19 @@ export default defineSchema({
 
   users: defineTable({
     clerkId: v.string(),
+    // Every user owns exactly one feed, created in the same mutation as the
+    // user. Optional only because Convex has no way to express that.
     feedId: v.optional(v.id("feeds")),
-    // Superseded by feeds.feedToken, which is the only copy that matters.
-    // Optional so users can stop carrying it; removed once every row is
-    // stripped by internal.feeds.stripLegacyColumns.
-    feedToken: v.optional(v.string()),
     displayName: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_clerk_id", ["clerkId"])
-    .index("by_feed", ["feedId"])
-    .index("by_feed_token", ["feedToken"]),
+    .index("by_feed", ["feedId"]),
 
   items: defineTable({
-    // feedId is optional only until the backfill has run everywhere; reads go
-    // through it. userId is written alongside during the transition and dropped
-    // once prod is migrated. It is optional for good: the public demo feed has
-    // no owner, so its items never had a user to point at.
+    // Every item belongs to a feed. Optional only because Convex has no way to
+    // express that, the same as users.feedId.
     feedId: v.optional(v.id("feeds")),
-    userId: v.optional(v.id("users")),
     url: v.string(),
     videoId: v.string(),
     title: v.optional(v.string()),
@@ -87,7 +81,6 @@ export default defineSchema({
   })
     .index("by_feed", ["feedId", "position"])
     .index("by_feed_video", ["feedId", "videoId"])
-    .index("by_user", ["userId", "position"])
     .index("by_status_expires", ["status", "expiresAt"])
     .index("by_status_next", ["status", "nextAttemptAt"]),
 });
