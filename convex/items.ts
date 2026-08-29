@@ -291,15 +291,50 @@ export const get = internalQuery({
   handler: (ctx, args) => ctx.db.get(args.itemId),
 });
 
-// Everything the RSS handler needs for one request: the feed, its owner's
-// display name if it has one, and its playable episodes.
+// Everything the RSS handler needs for one request: the feed's published
+// identity, its owner's display name if it has one, and its playable episodes.
 export const feedForRequest = internalQuery({
   args: { tokenOrSlug: v.string() },
   handler: async (ctx, args) => {
     const feed = await resolveFeed(ctx, args.tokenOrSlug);
-    if (!feed) return null;
-    const owner = await feedOwner(ctx, feed._id);
-    return { feed, owner, items: await readyFeedItems(ctx, feed._id) };
+    if (feed) {
+      const owner = await feedOwner(ctx, feed._id);
+      return {
+        feed: {
+          feedToken: feed.feedToken,
+          slug: feed.slug,
+          title: feed.title,
+          description: feed.description,
+        },
+        owner,
+        items: await readyFeedItems(ctx, feed._id),
+      };
+    }
+
+    // A user the sweep has not reached yet has no row in `feeds`, but their
+    // token and their items both still exist, and a feed URL already sitting in
+    // someone's podcast app must not start 404ing because of a migration. This
+    // read path goes away once prod is fully backfilled and userId is dropped.
+    const owner = await ctx.db
+      .query("users")
+      .withIndex("by_feed_token", (q) => q.eq("feedToken", args.tokenOrSlug))
+      .unique();
+    if (!owner) return null;
+    const owned = await ctx.db
+      .query("items")
+      .withIndex("by_user", (q) => q.eq("userId", owner._id))
+      .order("desc")
+      .collect();
+    return {
+      feed: {
+        feedToken: owner.feedToken,
+        slug: undefined,
+        title: undefined,
+        description: undefined,
+      },
+      owner,
+      items: owned.filter((item) => item.status === "ready" && !isExpiredReady(item)),
+    };
   },
 });
 
