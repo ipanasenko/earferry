@@ -238,3 +238,26 @@ export const seedSampleFeed = internalMutation({
     return { feedId: feed._id, added, alreadyPresent: existing.length };
   },
 });
+
+/**
+ * A feed with no slug and no owner: the same shape a user's private feed has
+ * on the wire, without needing a Clerk account. It exists so a disposable
+ * preview deployment can exercise resolution by token, which is the path that
+ * broke in #39, without handing CI a real subscriber's credential.
+ *
+ * Idempotent: an ownerless, slug-less feed is unambiguous, because every real
+ * private feed has an owner and every public one has a slug.
+ */
+export const seedTestPrivateFeed = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    for (const feed of await ctx.db.query("feeds").collect()) {
+      if (feed.slug) continue;
+      if (await feedOwner(ctx, feed._id)) continue;
+      return { feedToken: feed.feedToken };
+    }
+    const feedToken = randomFeedToken();
+    await ctx.db.insert("feeds", { feedToken, createdAt: Date.now() });
+    return { feedToken };
+  },
+});

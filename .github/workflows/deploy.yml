@@ -111,10 +111,20 @@ jobs:
       # idempotent, so running it every time is correct and cheap.
       # CONVEX_DEPLOYMENT_NAME comes from scripts/preview-build.sh.
       - name: Configure and seed the preview showroom
+        id: seed
         if: steps.guard.outputs.enabled == 'true'
         run: |
           bunx convex env set FEED_BASE_URL "$PREVIEW_URL" --deployment "$CONVEX_DEPLOYMENT_NAME"
           bunx convex run --deployment "$CONVEX_DEPLOYMENT_NAME" feeds:seedSampleFeed
+          # A private feed on this PR's own throwaway backend, so resolution by
+          # token is covered before merge without giving CI a real subscriber's
+          # feed URL.
+          token=$(
+            bunx convex run --deployment "$CONVEX_DEPLOYMENT_NAME" feeds:seedTestPrivateFeed \
+              | jq -r .feedToken
+          )
+          echo "::add-mask::$token"
+          echo "feed-token=$token" >> "$GITHUB_OUTPUT"
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
           PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}-earferry.earferry.workers.dev
@@ -144,6 +154,7 @@ jobs:
           bun run test:e2e
         env:
           PLAYWRIGHT_BASE_URL: https://pr-${{ github.event.pull_request.number }}-earferry.earferry.workers.dev
+          EARFERRY_FEED_TOKEN: ${{ steps.seed.outputs.feed-token }}
 
       - name: Publish preview URL
         if: steps.guard.outputs.enabled == 'true'
