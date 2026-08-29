@@ -130,6 +130,34 @@ UI groups them as: Ready (green), Extracting (blue, covers queued/probing/
 extracting/uploading, shows live phase text), Waiting (amber, premieres/live),
 Failed (red, with retry).
 
+## Saving a link
+
+Three entry points, one landing strip. All of them arrive at `/?add=<url>`:
+
+- The add form on the queue.
+- The bookmarklet in the header, for a desktop browser sitting on a YouTube page.
+- `GET /share`, the Android share sheet, through `share_target` in
+  `public/manifest.webmanifest`. Chrome only offers an *installed* PWA in the
+  share sheet, and Android's share system has no URL extra, so the link arrives
+  inside the `text` field (occasionally `title`) as free prose;
+  `src/lib/shareUrl.ts` picks the YouTube URL out of it. A share that carries no
+  YouTube link stops on `/share` and says so, rather than reaching the queue,
+  where nothing would explain the silence.
+
+`useCaptureAddParam` (`src/lib/pendingAdd.ts`) moves the link out of the address
+bar and into session storage during render, and the queue claims it once someone
+is signed in. The URL is not a safe place to hold it: a share can land signed
+out, and signing in with an OAuth provider leaves the page and comes back at an
+address of Clerk's choosing, without the query string. While the link waits, the
+landing page says so — a silent share is indistinguishable from a dropped one.
+
+This replaced a sideloaded APK (removed 2026-08-29, last at commit `a876fc5`):
+a share activity that opened `earferry.com/?add=<url>` in the default browser
+and nothing else. The share target does the same from the installed PWA, and
+drops a signing key, a release asset and a versionCode counter from CI. The
+trade is reach: share targets are Chromium-only, so Firefox Android no longer
+has an entry, and the PWA has to be installed before Chrome will offer it.
+
 ## Feed & media
 
 A feed is what a podcast app subscribes to and what items belong to. Every user
