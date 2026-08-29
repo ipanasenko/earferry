@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import { api } from "../lib/api";
@@ -10,6 +9,7 @@ import { QueueItem } from "../components/QueueItem";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingState } from "../components/LoadingState";
 import { usePageMeta } from "../lib/meta";
+import { takePendingAdd } from "../lib/pendingAdd";
 
 export function QueuePage() {
   // Renders at "/" for signed-in people, so the canonical stays the landing
@@ -23,15 +23,15 @@ export function QueuePage() {
 
   const items = useQuery(api.items.list, {});
   const add = useMutation(api.items.add);
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Bookmarklet entry point: /?add=<youtube url>
-  const addParam = searchParams.get("add");
+  // Entry point for the share target and the bookmarklet, both of which reach
+  // the app as /?add=<youtube url>. The link waits in session storage until
+  // there is a signed-in account to file it under, which is only now.
   useEffect(() => {
-    if (!addParam) return;
-    setSearchParams({}, { replace: true });
-    void add({ url: addParam }).catch(() => {});
-  }, [addParam, add, setSearchParams]);
+    const url = takePendingAdd();
+    if (!url) return;
+    void add({ url }).catch(() => {});
+  }, [add]);
 
   return (
     <div className="page-gradient min-h-screen">

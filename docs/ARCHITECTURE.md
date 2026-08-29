@@ -130,6 +130,31 @@ UI groups them as: Ready (green), Extracting (blue, covers queued/probing/
 extracting/uploading, shows live phase text), Waiting (amber, premieres/live),
 Failed (red, with retry).
 
+## Saving a link
+
+Three entry points, one landing strip. All of them arrive at `/?add=<url>`:
+
+- The add form on the queue.
+- The bookmarklet in the header, for a desktop browser sitting on a YouTube page.
+- `GET /share`, the Android share sheet, through `share_target` in
+  `public/manifest.webmanifest`. Chrome only offers an *installed* PWA in the
+  share sheet, and Android's share system has no URL extra, so the link arrives
+  inside the `text` field (occasionally `title`) as free prose;
+  `src/lib/shareUrl.ts` picks the YouTube URL out of it. A share that carries no
+  YouTube link stops on `/share` and says so, rather than reaching the queue,
+  where nothing would explain the silence.
+
+`useCaptureAddParam` (`src/lib/pendingAdd.ts`) moves the link out of the address
+bar and into session storage during render, and the queue claims it once someone
+is signed in. The URL is not a safe place to hold it: a share can land signed
+out, and signing in with an OAuth provider leaves the page and comes back at an
+address of Clerk's choosing, without the query string. While the link waits, the
+landing page says so — a silent share is indistinguishable from a dropped one.
+
+`android/` holds the sideloaded APK this replaced: a share activity that opened
+`earferry.com/?add=<url>` in the default browser and nothing else. It is
+redundant now and kept only until the share target is confirmed on a device.
+
 ## Feed & media
 
 A feed is what a podcast app subscribes to and what items belong to. Every user

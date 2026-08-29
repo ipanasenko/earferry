@@ -4,6 +4,8 @@ import { usePageMeta } from "../lib/meta";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { SampleFeedCard } from "../components/SampleFeedCard";
+import { SharedLinkNotice } from "../components/SharedLinkNotice";
+import { peekPendingAdd } from "../lib/pendingAdd";
 
 const FEATURES = [
   {
@@ -21,6 +23,10 @@ const FEATURES = [
 ];
 
 export function LandingPage() {
+  // Read during render rather than in an effect: `useCaptureAddParam` above
+  // this component has already stored the link by the time this runs.
+  const pendingUrl = peekPendingAdd();
+
   // Matches the static tags in index.html on purpose: this route is the one an
   // unfurler renders from raw HTML, so the two must not drift apart.
   usePageMeta({
@@ -35,6 +41,11 @@ export function LandingPage() {
       <div className="mx-auto w-full min-h-screen max-w-[1180px] flex flex-col px-4 sm:px-6 md:px-25">
         <Header />
         <section className="flex flex-col items-center pt-6 pb-10 gap-4.5">
+          {pendingUrl ? (
+            <div className="w-full max-w-140 mb-2.5">
+              <SharedLinkNotice url={pendingUrl} />
+            </div>
+          ) : null}
           <h1 className="font-extrabold tracking-tight text-center max-w-160 text-text text-[32px]/10 md:text-display/display">
             YouTube for your ears, delivered to your podcast app.
           </h1>

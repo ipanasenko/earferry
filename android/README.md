@@ -1,5 +1,13 @@
 # EarFerry for Android
 
+> **Superseded.** The web app registers a Web Share Target (`share_target` in
+> `public/manifest.webmanifest`), so an installed EarFerry PWA appears in the
+> Android share sheet on its own and handles the share at `/share`. This APK is
+> kept only until that is confirmed on a device, then this directory, its
+> workflow and the `ANDROID_KEYSTORE_BASE64` secret go away. Prefer the PWA:
+> sideloading needs the "install unknown apps" toggle and a Play Protect
+> dismissal, and Google's developer-verification rules will tighten that further.
+
 This tiny Android share target stores no account credentials and makes no network requests itself. Share a YouTube link to **EarFerry** and it opens the existing web app with that link queued for submission. Opening the app normally opens EarFerry.
 
 Build the sideloadable APK with the installed Android SDK:
