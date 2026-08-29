@@ -115,7 +115,7 @@ export function publishedDate(metadata: {
 }
 
 export function isWaitingLiveStatus(status: unknown): boolean {
-  return !["not_live", "was_live"].includes(String(status));
+  return status === "is_upcoming" || status === "is_live" || status === "post_live";
 }
 
 export function waitingDescription(metadata: {
