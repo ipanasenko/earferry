@@ -18,13 +18,18 @@ import {
   describeFailure,
 } from "./domain";
 import { currentUser, getOrCreateUser } from "./users";
+import { feedOwner, getOrCreateUserFeed, readyFeedItems, resolveFeed } from "./feeds";
 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 
-async function topPosition(ctx: MutationCtx, userId: Id<"users">): Promise<number> {
+export function renewedAudioExpiry(now = Date.now()): number {
+  return now + AUDIO_RETENTION_MS;
+}
+
+async function topPosition(ctx: MutationCtx, feedId: Id<"feeds">): Promise<number> {
   const top = await ctx.db
     .query("items")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .withIndex("by_feed", (q) => q.eq("feedId", feedId))
     .order("desc")
     .first();
   return (top?.position ?? 0) + 1;
@@ -32,8 +37,9 @@ async function topPosition(ctx: MutationCtx, userId: Id<"users">): Promise<numbe
 
 async function ownedItem(ctx: MutationCtx, id: Id<"items">): Promise<Doc<"items">> {
   const user = await getOrCreateUser(ctx);
+  const feed = await getOrCreateUserFeed(ctx, user);
   const item = await ctx.db.get(id);
-  if (!item || item.userId !== user._id) throw new ConvexError("Item not found");
+  if (!item || item.feedId !== feed._id) throw new ConvexError("Item not found");
   return item;
 }
 
@@ -130,7 +136,9 @@ export const requeue = internalMutation({
 // extraction. Guarded on the observed expiry so a concurrent re-extract or
 // delete is left alone.
 export const requeueMissingAudio = internalMutation({
-  args: { itemId: v.id("items"), observedExpiresAt: v.number() },
+  // Optional because a permanent feed's episodes never carry an expiry; the
+  // guard still fences out a concurrent re-extract or delete either way.
+  args: { itemId: v.id("items"), observedExpiresAt: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || item.status !== "ready" || item.expiresAt !== args.observedExpiresAt) return;
@@ -151,11 +159,23 @@ export const list = query({
   handler: async (ctx) => {
     const user = await currentUser(ctx);
     if (!user) return [];
-    const items = await ctx.db
-      .query("items")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .order("desc")
-      .collect();
+    // Bound explicitly: an undefined feedId is a real value in this index and
+    // would match the not-yet-adopted rows, so it must never reach by_feed.
+    const feedId = user.feedId;
+    const items = feedId
+      ? await ctx.db
+          .query("items")
+          .withIndex("by_feed", (q) => q.eq("feedId", feedId))
+          .order("desc")
+          .collect()
+      : // A user the sweep has not reached yet still sees their queue. Queries
+        // cannot write, so this read path stays until prod is fully backfilled
+        // and userId is dropped.
+        await ctx.db
+          .query("items")
+          .withIndex("by_user", (q) => q.eq("userId", user._id))
+          .order("desc")
+          .collect();
     return items.filter((item) => item.status !== "deleting");
   },
 });
@@ -166,15 +186,16 @@ export const add = mutation({
     const url = normalizeYouTubeUrl(args.url);
     const videoId = youtubeVideoId(url);
     const user = await getOrCreateUser(ctx);
+    const feed = await getOrCreateUserFeed(ctx, user);
     const now = Date.now();
 
     const existing = await ctx.db
       .query("items")
-      .withIndex("by_user_video", (q) => q.eq("userId", user._id).eq("videoId", videoId))
+      .withIndex("by_feed_video", (q) => q.eq("feedId", feed._id).eq("videoId", videoId))
       .unique();
 
     if (existing) {
-      const position = await topPosition(ctx, user._id);
+      const position = await topPosition(ctx, feed._id);
       if (existing.status === "deleting") {
         throw new ConvexError("This video is still being deleted. Try again shortly");
       }
@@ -204,11 +225,14 @@ export const add = mutation({
     }
 
     const itemId = await ctx.db.insert("items", {
+      feedId: feed._id,
+      // Written alongside feedId only until prod is backfilled and the column
+      // is dropped. Nothing reads it.
       userId: user._id,
       url,
       videoId,
       addedAt: now,
-      position: await topPosition(ctx, user._id),
+      position: await topPosition(ctx, feed._id),
       status: "queued",
       nextAttemptAt: now,
     });
@@ -267,24 +291,15 @@ export const get = internalQuery({
   handler: (ctx, args) => ctx.db.get(args.itemId),
 });
 
-export const userByFeedToken = internalQuery({
-  args: { feedToken: v.string() },
-  handler: (ctx, args) =>
-    ctx.db
-      .query("users")
-      .withIndex("by_feed_token", (q) => q.eq("feedToken", args.feedToken))
-      .unique(),
-});
-
-export const readyItemsForUser = internalQuery({
-  args: { userId: v.id("users") },
+// Everything the RSS handler needs for one request: the feed, its owner's
+// display name if it has one, and its playable episodes.
+export const feedForRequest = internalQuery({
+  args: { tokenOrSlug: v.string() },
   handler: async (ctx, args) => {
-    const items = await ctx.db
-      .query("items")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .order("desc")
-      .collect();
-    return items.filter((item) => item.status === "ready" && !isExpiredReady(item));
+    const feed = await resolveFeed(ctx, args.tokenOrSlug);
+    if (!feed) return null;
+    const owner = await feedOwner(ctx, feed._id);
+    return { feed, owner, items: await readyFeedItems(ctx, feed._id) };
   },
 });
 
@@ -450,7 +465,11 @@ export const markReady = internalMutation({
     // deletes its R2 objects when this answers with a rejection.
     if (!["extracting", "uploading"].includes(item.status)) return false;
     if (item.attemptToken && args.attempt !== item.attemptToken) return false;
-    const expiresAt = Date.now() + AUDIO_RETENTION_MS;
+    // A permanent feed is a showroom whose enclosures must not go dead, so its
+    // episodes are never given a deadline. Nothing else deletes ready audio, so
+    // "no expiresAt" is the whole mechanism.
+    const feed = item.feedId ? await ctx.db.get(item.feedId) : null;
+    const expiresAt = feed?.permanent ? undefined : renewedAudioExpiry();
     await ctx.db.patch(args.itemId, {
       status: "ready",
       phase: undefined,
@@ -471,7 +490,9 @@ export const markReady = internalMutation({
       artworkUrl: args.artworkUrl ?? item.artworkUrl,
       expiresAt,
     });
-    await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });
+    if (expiresAt !== undefined) {
+      await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });
+    }
     // Submit any product items that became due while this one was running.
     await wakeDispatcher(ctx);
     return true;
@@ -485,6 +506,25 @@ export const deleteExpired = internalMutation({
     if (!item || item.expiresAt !== args.observedExpiresAt || !isExpiredReady(item)) return false;
     await ctx.db.delete(args.itemId);
     return true;
+  },
+});
+
+// The public showroom's episodes never expire, so nothing has to renew them.
+// What can still go wrong is R2 losing an object underneath a feed nobody
+// fetches often, so this re-checks each enclosure and lets verifyAudio
+// re-extract anything that has gone missing.
+export const verifyPermanentFeeds = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const feeds = await ctx.db.query("feeds").collect();
+    let checked = 0;
+    for (const feed of feeds.filter((candidate) => candidate.permanent)) {
+      for (const item of await readyFeedItems(ctx, feed._id)) {
+        await ctx.scheduler.runAfter(0, internal.extractor.verifyAudio, { itemId: item._id });
+        checked += 1;
+      }
+    }
+    return { checked };
   },
 });
 
@@ -559,16 +599,17 @@ export const retryOrFail = internalMutation({
   },
 });
 
-// Item plus its owner, for the Worker-facing HTTP actions that need the
-// owner's feed token (media URL signing).
-export const itemWithUser = internalQuery({
+// Item plus its feed, for the Worker-facing HTTP actions that need the feed
+// token (media URL signing). The owner comes along for analytics attribution
+// and is absent for the ownerless public feed.
+export const itemWithFeed = internalQuery({
   args: { itemId: v.id("items") },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item) return null;
-    const user = await ctx.db.get(item.userId);
-    if (!user) return null;
-    return { item, user };
+    if (!item?.feedId) return null;
+    const feed = await ctx.db.get(item.feedId);
+    if (!feed) return null;
+    return { item, feed, owner: await feedOwner(ctx, feed._id) };
   },
 });
 
@@ -576,9 +617,9 @@ export const ownedItemForDiagnostics = internalQuery({
   args: { itemId: v.id("items"), clerkId: v.string() },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
-    if (!item) return null;
-    const user = await ctx.db.get(item.userId);
-    return user?.clerkId === args.clerkId ? item : null;
+    if (!item?.feedId) return null;
+    const owner = await feedOwner(ctx, item.feedId);
+    return owner?.clerkId === args.clerkId ? item : null;
   },
 });
 

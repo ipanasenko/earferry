@@ -132,8 +132,18 @@ Failed (red, with retry).
 
 ## Feed & media
 
+A feed is what a podcast app subscribes to and what items belong to. Every user
+owns exactly one private feed; the public demo showroom is a feed with no owner,
+which is why it needs no account. Both are rows in `feeds`, and `items.feedId`
+points at either shape.
+
 - `GET /feed/{feedToken}` (Convex HTTP action) — RSS with episode notes from the
   YouTube description, timestamped lines as chapters.
+- `GET /feed/{slug}` — the same handler. A public feed publishes its slug and
+  its own branding instead of its token, and answers with a short shared cache.
+  A public feed marked `permanent` never gives its episodes an `expiresAt`, so
+  the showroom enclosures cannot go dead; `internal.feeds.seedSampleFeed` fills
+  it and a daily cron re-verifies each MP3 is still in R2.
 - `GET /media/{feedToken}/{itemId}.mp3?s={sig}` — served by the
   earferry-extractor Worker directly from R2 (byte-range support). Convex signs
   and stores the URL on the item when it becomes ready.

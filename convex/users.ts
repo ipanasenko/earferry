@@ -1,20 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-
-function randomFeedToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-export function feedBaseUrl(): string {
-  // HTTP actions live on the .convex.site domain. CONVEX_SITE_URL is a Convex
-  // built-in env var; FEED_BASE_URL overrides it once a custom domain exists.
-  const base = process.env.FEED_BASE_URL ?? process.env.CONVEX_SITE_URL;
-  if (!base) throw new Error("FEED_BASE_URL or CONVEX_SITE_URL must be set");
-  return base.replace(/\/$/, "");
-}
+import { feedBaseUrl, feedUrl, getOrCreateUserFeed, randomFeedToken } from "./feeds";
 
 export async function currentUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
   const identity = await ctx.auth.getUserIdentity();
@@ -35,10 +22,14 @@ export async function getOrCreateUser(ctx: MutationCtx): Promise<Doc<"users">> {
     .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
     .unique();
   if (existing) return existing;
+  const now = Date.now();
+  const feedToken = randomFeedToken();
+  const feedId = await ctx.db.insert("feeds", { feedToken, createdAt: now });
   const id = await ctx.db.insert("users", {
     clerkId: identity.subject,
-    feedToken: randomFeedToken(),
-    createdAt: Date.now(),
+    feedId,
+    feedToken,
+    createdAt: now,
   });
   return (await ctx.db.get(id))!;
 }
@@ -48,7 +39,13 @@ export const me = query({
   handler: async (ctx) => {
     const user = await currentUser(ctx);
     if (!user) return { feedUrl: null };
-    return { feedUrl: `${feedBaseUrl()}/feed/${encodeURIComponent(user.feedToken)}` };
+    const feed = user.feedId ? await ctx.db.get(user.feedId) : null;
+    // A user the backfill has not reached yet still gets the right URL: their
+    // feed is created carrying the token they already have, so both branches
+    // produce the same string.
+    return {
+      feedUrl: feed ? feedUrl(feed) : `${feedBaseUrl()}/feed/${encodeURIComponent(user.feedToken)}`,
+    };
   },
 });
 
@@ -79,13 +76,17 @@ export const rotateFeedToken = mutation({
       .unique();
     if (!user) throw new ConvexError("Feed not found");
 
+    const feed = await getOrCreateUserFeed(ctx, user);
     const feedToken = randomFeedToken();
+    await ctx.db.patch(feed._id, { feedToken });
     await ctx.db.patch(user._id, { feedToken });
+    // Stored media URLs are signed with the old token, so they must be dropped
+    // and re-signed on the next feed build.
     const items = await ctx.db
       .query("items")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_feed", (q) => q.eq("feedId", feed._id))
       .collect();
     await Promise.all(items.map((item) => ctx.db.patch(item._id, { mediaUrl: undefined })));
-    return { feedUrl: `${feedBaseUrl()}/feed/${encodeURIComponent(feedToken)}` };
+    return { feedUrl: feedUrl({ ...feed, feedToken }) };
   },
 });

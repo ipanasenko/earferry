@@ -32,6 +32,8 @@ export type AnalyticsEvent =
   | "item_retried"
   | "feed_url_copied"
   | "feed_url_rotated"
+  | "sample_feed_opened"
+  | "sample_feed_url_copied"
   | "donate_clicked";
 
 export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {

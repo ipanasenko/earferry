@@ -123,22 +123,31 @@ function chapterXml(description: string | undefined): string {
       </psc:chapters>`;
 }
 
+/**
+ * A public feed publishes its slug and its own branding; a private feed
+ * publishes its token and is named after its owner. Both are the same record,
+ * so the only branch here is which fields are set.
+ */
 export async function buildFeed(
   items: Array<Doc<"items">>,
   origin: string,
-  feedToken: string,
+  feed: Pick<Doc<"feeds">, "feedToken" | "slug" | "title" | "description">,
   displayName?: string,
 ): Promise<string> {
   const base = origin.replace(/\/$/, "");
-  const feedUrl = `${base}/feed/${encodeURIComponent(feedToken)}`;
+  const path = feed.slug
+    ? `/feed/${encodeURIComponent(feed.slug)}`
+    : `/feed/${encodeURIComponent(feed.feedToken)}`;
+  const feedUrl = `${base}${path}`;
   // Channel art: the app serves the logo as a static asset.
   const channelArtUrl = process.env.CHANNEL_ART_URL ?? null;
-  const feedDescription = "YouTube videos saved for listening later.";
-  const feedName = displayName ? `EarFerry · Captained by ${displayName}` : "EarFerry";
+  const feedDescription = feed.description ?? "YouTube videos saved for listening later.";
+  const feedName =
+    feed.title ?? (displayName ? `EarFerry · Captained by ${displayName}` : "EarFerry");
   // Items store their signed Worker media URL when they become ready; sign on
   // the fly for anything that predates that.
   const mediaUrls = await Promise.all(
-    items.map((item) => item.mediaUrl ?? signedMediaUrl(feedToken, item._id)),
+    items.map((item) => item.mediaUrl ?? signedMediaUrl(feed.feedToken, item._id)),
   );
 
   const entries = items
