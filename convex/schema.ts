@@ -37,10 +37,11 @@ export default defineSchema({
 
   users: defineTable({
     clerkId: v.string(),
-    // Optional only until the backfill has run everywhere; every user created
-    // from now on gets one. See internal.feeds.backfill.
     feedId: v.optional(v.id("feeds")),
-    feedToken: v.string(),
+    // Superseded by feeds.feedToken, which is the only copy that matters.
+    // Optional so users can stop carrying it; removed once every row is
+    // stripped by internal.feeds.stripLegacyColumns.
+    feedToken: v.optional(v.string()),
     displayName: v.optional(v.string()),
     createdAt: v.number(),
   })
