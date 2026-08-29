@@ -8,11 +8,11 @@ const FAQ = [
   },
   {
     title: "My podcast app doesn't see new episodes",
-    body: "Podcast apps poll feeds on their own schedule, so give it a few minutes or refresh the feed manually. Also check the item shows Ready in your queue first.",
+    body: "Podcast apps poll feeds on their own schedule, so give it a few minutes or refresh the feed manually. Also check that the item shows Ready in your queue first.",
   },
   {
     title: "I leaked my feed URL",
-    body: "Write to us and we replace your feed URL. We send you the new URL to add to your podcast app; the old feed stops receiving updates.",
+    body: "Write to us and we'll replace your feed URL. We'll send you the new URL to add to your podcast app; the old feed will stop receiving updates.",
   },
 ];
 
@@ -46,9 +46,7 @@ export function SupportPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between py-5 px-5.5 rounded-md gap-4.5 bg-ink">
           <div className="flex flex-col gap-1">
             <div className="font-semibold text-background text-lg/base">Still stuck?</div>
-            <div className="text-wave-soft text-base/base">
-              A human reads every message, usually within a day.
-            </div>
+            <div className="text-wave-soft text-base/base">A human reads every message.</div>
           </div>
           <a
             href="mailto:sos@earferry.com"

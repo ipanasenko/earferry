@@ -8,15 +8,15 @@ const SECTIONS = [
   },
   {
     title: "Acceptable use",
-    body: "Add only content you have the right to listen to. Don't redistribute your feed publicly, resell access, or use EarFerry to mass-download or re-publish other people's work.",
+    body: "Add only content you have the right to listen to. Don't redistribute your feed publicly, resell access, or use EarFerry to mass-download or republish other people's work.",
   },
   {
     title: "No warranty",
-    body: "Extraction depends on YouTube and can break without notice. The service is provided as-is; episodes and feeds may be unavailable, rate-limited, or removed if a source video disappears.",
+    body: "Extraction depends on YouTube and can break without notice. The service is provided as is; episodes and feeds may be unavailable or rate-limited. New extractions may fail if a source video becomes unavailable, and ready episodes are deleted after 30 days.",
   },
   {
     title: "Termination",
-    body: "We may suspend feeds that abuse the service or violate these terms. You can stop using EarFerry at any time; deleting your items removes their stored audio and metadata.",
+    body: "We may suspend accounts that abuse the service or violate these terms. You can stop using EarFerry at any time; deleting your items removes their stored audio and metadata.",
   },
   {
     title: "Contact",
@@ -28,14 +28,14 @@ export function TermsPage() {
   usePageMeta({
     title: "Terms · EarFerry",
     description:
-      "The terms of using EarFerry: personal, non-commercial listening, acceptable use, and no warranty.",
+      "The terms for using EarFerry: personal, non-commercial listening, acceptable use, and no warranty.",
     path: "/terms",
   });
 
   return (
     <StaticPageLayout
       title="Terms"
-      meta={<div className="text-text-muted text-sm/4">Last updated August 25, 2026</div>}
+      meta={<div className="text-text-muted text-sm/4">Last updated August 29, 2026</div>}
     >
       <div className="flex flex-col gap-6">
         {SECTIONS.map((s) => (
