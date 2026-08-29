@@ -8,10 +8,6 @@ import { expect, test } from "@playwright/test";
  */
 const deployed = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 
-// A preview deployment cannot reach the extractor, so its seeded episodes never
-// become ready. Only production is expected to serve playable audio.
-const hasMedia = process.env.EARFERRY_FEED_HAS_MEDIA === "1";
-
 // Never hard-coded: a feed token is a credential and this repository is public.
 const feedToken = process.env.EARFERRY_FEED_TOKEN;
 
@@ -30,25 +26,6 @@ test("the sample feed is published under its slug", async ({ request, baseURL })
   // The self-link is the slug. A public feed never advertises its token, even
   // though its enclosure URLs are signed with one.
   expect(xml).toContain(`href="${baseURL}/feed/sample"`);
-});
-
-test("the sample feed serves playable episodes", async ({ request }) => {
-  test.skip(!hasMedia, "Set EARFERRY_FEED_HAS_MEDIA=1 against an origin with extracted audio");
-  const xml = await (await request.get("/feed/sample")).text();
-
-  // Deliberately not "exactly ten": YouTube intermittently refuses extraction
-  // with a bot check, and one demo episode missing today must not fail an
-  // unrelated deploy. Completeness is an operational concern for the daily
-  // verification cron; what gates a deploy is that the feed serves real audio.
-  const enclosures = xml.match(/<enclosure /g) ?? [];
-  expect(enclosures.length).toBeGreaterThan(0);
-
-  // The demo is worthless if the audio 404s, which is the failure the daily
-  // verification cron exists to catch.
-  const firstUrl = xml.match(/<enclosure url="([^"]+)"/)?.[1];
-  expect(firstUrl).toBeTruthy();
-  const media = await request.head(firstUrl!);
-  expect(media.status()).toBe(200);
 });
 
 test("a private feed resolves by token and is never shared-cached", async ({

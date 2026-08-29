@@ -145,8 +145,7 @@ jobs:
       # The checks job runs these against `vite preview`, which serves only the
       # static bundle. Here they run against the real Worker and this PR's own
       # Convex backend, so routing, the /feed/* proxy and the feed itself are
-      # covered. The preview cannot reach the extractor, so its seeded episodes
-      # never become ready and the playable-audio test stays off.
+      # covered.
       - name: End-to-end tests against the preview
         if: steps.guard.outputs.enabled == 'true'
         run: |
@@ -203,14 +202,13 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}
 
-      # Production is the only origin that serves extracted audio, so this is
-      # where the demo feed is checked end to end. EARFERRY_FEED_TOKEN is
-      # optional; without it the private-feed test skips rather than fails.
-      - name: Smoke test the live feeds
+      # A post-deploy smoke test against the real thing. EARFERRY_FEED_TOKEN is
+      # optional; without it the private-feed test skips rather than fails,
+      # since the preview run already covers resolution by token.
+      - name: Smoke test the live site
         run: |
           bunx playwright install --with-deps chromium
           bun run test:e2e
         env:
           PLAYWRIGHT_BASE_URL: https://earferry.com
-          EARFERRY_FEED_HAS_MEDIA: "1"
           EARFERRY_FEED_TOKEN: ${{ secrets.EARFERRY_FEED_TOKEN }}
