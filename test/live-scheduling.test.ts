@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { nextCheckDelay, waitingDescription } from "../convex/domain";
+import { isWaitingLiveStatus, nextCheckDelay, waitingDescription } from "../convex/domain";
 
 describe("premiere and live scheduling", () => {
   test("caps distant premiere checks at thirty minutes", () => {
@@ -16,5 +16,17 @@ describe("premiere and live scheduling", () => {
     expect(waitingDescription({ live_status: "is_live" })).toContain("Live now");
     expect(waitingDescription({ live_status: "post_live" })).toContain("finish processing");
     expect(waitingDescription({ live_status: "is_upcoming" })).toContain("Upcoming");
+  });
+
+  test("waits only for explicit live and premiere states", () => {
+    expect(isWaitingLiveStatus("is_upcoming")).toBe(true);
+    expect(isWaitingLiveStatus("is_live")).toBe(true);
+    expect(isWaitingLiveStatus("post_live")).toBe(true);
+
+    expect(isWaitingLiveStatus("not_live")).toBe(false);
+    expect(isWaitingLiveStatus("was_live")).toBe(false);
+    expect(isWaitingLiveStatus(null)).toBe(false);
+    expect(isWaitingLiveStatus(undefined)).toBe(false);
+    expect(isWaitingLiveStatus("unknown_future_status")).toBe(false);
   });
 });
