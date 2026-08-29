@@ -66,7 +66,7 @@ describe("backfill", () => {
 });
 
 describe("the queue a signed-in person sees", () => {
-  test("shows their items before the backfill has reached them", async () => {
+  test("shows their items once the backfill has adopted them", async () => {
     const t = testConvex();
     await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
@@ -83,6 +83,8 @@ describe("the queue a signed-in person sees", () => {
         status: "ready",
       });
     });
+
+    await t.mutation(internal.feeds.backfill, {});
 
     const items = await t.withIdentity({ subject: "clerk|a" }).query(internal.items.list, {});
     expect(items).toHaveLength(1);
@@ -133,5 +135,69 @@ describe("permanent feeds", () => {
   test("a normal feed's episodes still expire", async () => {
     const item = await readyItemIn(testConvex(), false);
     expect(item!.expiresAt).toBeGreaterThan(Date.now());
+  });
+});
+
+describe("stripping the superseded columns", () => {
+  test("clears items.userId and users.feedToken, and is idempotent", async () => {
+    const t = testConvex();
+    await t.run(async (ctx) => {
+      const feedId = await ctx.db.insert("feeds", { feedToken: "t", createdAt: 0 });
+      const userId = await ctx.db.insert("users", {
+        clerkId: "clerk|a",
+        feedId,
+        feedToken: "t",
+        createdAt: 0,
+      });
+      await ctx.db.insert("items", {
+        feedId,
+        userId,
+        url: YOUTUBE_URL,
+        videoId: "abcdefghijk",
+        addedAt: 0,
+        position: 1,
+        status: "ready",
+      });
+    });
+
+    const first = await t.mutation(internal.feeds.stripLegacyColumns, {});
+    expect(first).toEqual({ itemsStripped: 1, usersStripped: 1, done: true });
+
+    const state = await t.run(async (ctx) => {
+      const user = (await ctx.db.query("users").collect())[0];
+      const item = (await ctx.db.query("items").collect())[0];
+      return {
+        userHasToken: user.feedToken !== undefined,
+        itemHasUserId: item.userId !== undefined,
+        // The feed keeps the token; only the duplicate copy goes.
+        feedToken: (await ctx.db.get(user.feedId!))!.feedToken,
+      };
+    });
+    expect(state).toEqual({ userHasToken: false, itemHasUserId: false, feedToken: "t" });
+
+    expect(await t.mutation(internal.feeds.stripLegacyColumns, {})).toEqual({
+      itemsStripped: 0,
+      usersStripped: 0,
+      done: true,
+    });
+  });
+
+  test("leaves the feed reachable at the same URL afterwards", async () => {
+    const t = testConvex();
+    await t.run(async (ctx) => {
+      const feedId = await ctx.db.insert("feeds", { feedToken: "keep-me", createdAt: 0 });
+      await ctx.db.insert("users", {
+        clerkId: "clerk|a",
+        feedId,
+        feedToken: "keep-me",
+        createdAt: 0,
+      });
+    });
+
+    await t.mutation(internal.feeds.stripLegacyColumns, {});
+
+    // The whole point: stripping the duplicate must not change anyone's URL.
+    const found = await t.query(internal.items.feedForRequest, { tokenOrSlug: "keep-me" });
+    expect(found).not.toBeNull();
   });
 });

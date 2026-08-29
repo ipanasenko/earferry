@@ -158,24 +158,15 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const user = await currentUser(ctx);
-    if (!user) return [];
-    // Bound explicitly: an undefined feedId is a real value in this index and
-    // would match the not-yet-adopted rows, so it must never reach by_feed.
-    const feedId = user.feedId;
-    const items = feedId
-      ? await ctx.db
-          .query("items")
-          .withIndex("by_feed", (q) => q.eq("feedId", feedId))
-          .order("desc")
-          .collect()
-      : // A user the sweep has not reached yet still sees their queue. Queries
-        // cannot write, so this read path stays until prod is fully backfilled
-        // and userId is dropped.
-        await ctx.db
-          .query("items")
-          .withIndex("by_user", (q) => q.eq("userId", user._id))
-          .order("desc")
-          .collect();
+    // Bound explicitly: an undefined feedId is a real value in this index, so
+    // it must never reach by_feed or it would match ownerless rows.
+    const feedId = user?.feedId;
+    if (!feedId) return [];
+    const items = await ctx.db
+      .query("items")
+      .withIndex("by_feed", (q) => q.eq("feedId", feedId))
+      .order("desc")
+      .collect();
     return items.filter((item) => item.status !== "deleting");
   },
 });
@@ -226,9 +217,6 @@ export const add = mutation({
 
     const itemId = await ctx.db.insert("items", {
       feedId: feed._id,
-      // Written alongside feedId only until prod is backfilled and the column
-      // is dropped. Nothing reads it.
-      userId: user._id,
       url,
       videoId,
       addedAt: now,
@@ -293,6 +281,7 @@ export const get = internalQuery({
 
 // Everything the RSS handler needs for one request: the feed's published
 // identity, its owner's display name if it has one, and its playable episodes.
+// Every user owns a feed, so a token that resolves to nothing is simply wrong.
 export const feedForRequest = internalQuery({
   args: { tokenOrSlug: v.string() },
   handler: async (ctx, args) => {
@@ -311,30 +300,7 @@ export const feedForRequest = internalQuery({
       };
     }
 
-    // A user the sweep has not reached yet has no row in `feeds`, but their
-    // token and their items both still exist, and a feed URL already sitting in
-    // someone's podcast app must not start 404ing because of a migration. This
-    // read path goes away once prod is fully backfilled and userId is dropped.
-    const owner = await ctx.db
-      .query("users")
-      .withIndex("by_feed_token", (q) => q.eq("feedToken", args.tokenOrSlug))
-      .unique();
-    if (!owner) return null;
-    const owned = await ctx.db
-      .query("items")
-      .withIndex("by_user", (q) => q.eq("userId", owner._id))
-      .order("desc")
-      .collect();
-    return {
-      feed: {
-        feedToken: owner.feedToken,
-        slug: undefined,
-        title: undefined,
-        description: undefined,
-      },
-      owner,
-      items: owned.filter((item) => item.status === "ready" && !isExpiredReady(item)),
-    };
+    return null;
   },
 });
 

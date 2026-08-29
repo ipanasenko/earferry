@@ -117,11 +117,13 @@ export async function getOrCreateUserFeed(
     const existing = await ctx.db.get(user.feedId);
     if (existing) return existing;
   }
-  const byToken = await feedByToken(ctx, user.feedToken);
+  // Reuse the user's own token where they still carry one, so a feed URL
+  // already sitting in a podcast app keeps working.
+  const byToken = user.feedToken ? await feedByToken(ctx, user.feedToken) : null;
   const feedId = byToken
     ? byToken._id
     : await ctx.db.insert("feeds", {
-        feedToken: user.feedToken,
+        feedToken: user.feedToken ?? randomFeedToken(),
         createdAt: user.createdAt,
       });
   await ctx.db.patch(user._id, { feedId });
@@ -248,6 +250,43 @@ export const seedSampleFeed = internalMutation({
  * Idempotent: an ownerless, slug-less feed is unambiguous, because every real
  * private feed has an owner and every public one has a slug.
  */
+/**
+ * Clears the columns the feeds module replaced: items.userId, superseded by
+ * feedId, and users.feedToken, superseded by the token on the feed itself.
+ *
+ * Convex validates existing documents against the schema, so the fields cannot
+ * be removed from schema.ts until every row has stopped carrying them. Run this
+ * to completion on a deployment before pushing the narrowed schema.
+ *
+ *   npx convex run --prod feeds:stripLegacyColumns
+ */
+export const stripLegacyColumns = internalMutation({
+  args: { batchSize: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize ?? 200;
+
+    const items = (await ctx.db.query("items").take(batchSize * 4)).filter(
+      (item) => item.userId !== undefined,
+    );
+    for (const item of items.slice(0, batchSize)) {
+      await ctx.db.patch(item._id, { userId: undefined });
+    }
+
+    const users = (await ctx.db.query("users").take(batchSize * 4)).filter(
+      (user) => user.feedToken !== undefined,
+    );
+    for (const user of users.slice(0, batchSize)) {
+      await ctx.db.patch(user._id, { feedToken: undefined });
+    }
+
+    return {
+      itemsStripped: Math.min(items.length, batchSize),
+      usersStripped: Math.min(users.length, batchSize),
+      done: items.length <= batchSize && users.length <= batchSize,
+    };
+  },
+});
+
 export const seedTestPrivateFeed = internalMutation({
   args: {},
   handler: async (ctx) => {

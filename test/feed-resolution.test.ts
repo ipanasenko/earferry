@@ -3,37 +3,24 @@ import { internal } from "../convex/_generated/api";
 import { testConvex } from "./convexTest";
 
 describe("feed resolution", () => {
-  // The bug behind #39. Feed URLs live in people's podcast apps for months, so
-  // resolution must not depend on a migration having reached that user's row.
-  test("resolves a user whose feed row does not exist yet", async () => {
+  // The invariant that replaces the #39 fallback: a user cannot exist without
+  // a feed, because the same mutation creates both. Nothing has to repair the
+  // gap afterwards, so there is no gap.
+  test("a newly created user is immediately resolvable by their feed token", async () => {
     const t = testConvex();
-    const feedToken = "legacy-token";
-    await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        clerkId: "clerk|legacy",
-        feedToken,
-        displayName: "Ava",
-        createdAt: 0,
-      });
-      await ctx.db.insert("items", {
-        userId,
-        url: "https://www.youtube.com/watch?v=abcdefghijk",
-        videoId: "abcdefghijk",
-        addedAt: 0,
-        position: 1,
-        status: "ready",
-        mediaUrl: "https://media.example/a.mp3",
-        expiresAt: Date.now() + 60_000,
-      });
+    await t.withIdentity({ subject: "clerk|new" }).mutation(internal.users.syncProfile, {
+      displayName: "Ava",
     });
 
+    const feedToken = await t.run(async (ctx) => {
+      const user = (await ctx.db.query("users").collect())[0];
+      expect(user.feedId).toBeDefined();
+      return (await ctx.db.get(user.feedId!))!.feedToken;
+    });
     const found = await t.query(internal.items.feedForRequest, { tokenOrSlug: feedToken });
 
     expect(found).not.toBeNull();
-    expect(found!.feed.feedToken).toBe(feedToken);
-    expect(found!.feed.slug).toBeUndefined();
     expect(found!.owner?.displayName).toBe("Ava");
-    expect(found!.items).toHaveLength(1);
   });
 
   test("resolves a migrated user by their feed token", async () => {

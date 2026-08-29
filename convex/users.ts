@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { feedBaseUrl, feedUrl, getOrCreateUserFeed, randomFeedToken } from "./feeds";
+import { feedUrl, getOrCreateUserFeed, randomFeedToken } from "./feeds";
 
 export async function currentUser(ctx: QueryCtx): Promise<Doc<"users"> | null> {
   const identity = await ctx.auth.getUserIdentity();
@@ -23,12 +23,10 @@ export async function getOrCreateUser(ctx: MutationCtx): Promise<Doc<"users">> {
     .unique();
   if (existing) return existing;
   const now = Date.now();
-  const feedToken = randomFeedToken();
-  const feedId = await ctx.db.insert("feeds", { feedToken, createdAt: now });
+  const feedId = await ctx.db.insert("feeds", { feedToken: randomFeedToken(), createdAt: now });
   const id = await ctx.db.insert("users", {
     clerkId: identity.subject,
     feedId,
-    feedToken,
     createdAt: now,
   });
   return (await ctx.db.get(id))!;
@@ -38,14 +36,8 @@ export const me = query({
   args: {},
   handler: async (ctx) => {
     const user = await currentUser(ctx);
-    if (!user) return { feedUrl: null };
-    const feed = user.feedId ? await ctx.db.get(user.feedId) : null;
-    // A user the backfill has not reached yet still gets the right URL: their
-    // feed is created carrying the token they already have, so both branches
-    // produce the same string.
-    return {
-      feedUrl: feed ? feedUrl(feed) : `${feedBaseUrl()}/feed/${encodeURIComponent(user.feedToken)}`,
-    };
+    const feed = user?.feedId ? await ctx.db.get(user.feedId) : null;
+    return { feedUrl: feed ? feedUrl(feed) : null };
   },
 });
 
@@ -79,7 +71,6 @@ export const rotateFeedToken = mutation({
     const feed = await getOrCreateUserFeed(ctx, user);
     const feedToken = randomFeedToken();
     await ctx.db.patch(feed._id, { feedToken });
-    await ctx.db.patch(user._id, { feedToken });
     // Stored media URLs are signed with the old token, so they must be dropped
     // and re-signed on the next feed build.
     const items = await ctx.db
