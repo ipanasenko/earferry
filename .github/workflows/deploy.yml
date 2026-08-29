@@ -100,6 +100,35 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY_DEVELOPMENT }}
 
+      # Give the preview backend the same shape as production. FEED_BASE_URL is
+      # what a feed's self-link is built from; without it feedBaseUrl() falls
+      # back to CONVEX_SITE_URL and the feed advertises the *.convex.site origin
+      # instead of the one subscribers actually use.
+      #
+      # Seeding is a step rather than `convex deploy --preview-run`, because
+      # that only fires when the preview backend is newly created and a PR's
+      # second push would then test an empty showroom. seedSampleFeed is
+      # idempotent, so running it every time is correct and cheap.
+      # CONVEX_DEPLOYMENT_NAME comes from scripts/preview-build.sh.
+      - name: Configure and seed the preview showroom
+        id: seed
+        if: steps.guard.outputs.enabled == 'true'
+        run: |
+          bunx convex env set FEED_BASE_URL "$PREVIEW_URL" --deployment "$CONVEX_DEPLOYMENT_NAME"
+          bunx convex run --deployment "$CONVEX_DEPLOYMENT_NAME" feeds:seedSampleFeed
+          # A private feed on this PR's own throwaway backend, so resolution by
+          # token is covered before merge without giving CI a real subscriber's
+          # feed URL.
+          token=$(
+            bunx convex run --deployment "$CONVEX_DEPLOYMENT_NAME" feeds:seedTestPrivateFeed \
+              | jq -r .feedToken
+          )
+          echo "::add-mask::$token"
+          echo "feed-token=$token" >> "$GITHUB_OUTPUT"
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+          PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}-earferry.earferry.workers.dev
+
       # CONVEX_SITE_URL is written to GITHUB_ENV by scripts/preview-build.sh and
       # overrides the shared development origin in wrangler.dev.jsonc.
       - name: Upload PR preview
@@ -112,6 +141,19 @@ jobs:
           --message "PR #${{ github.event.pull_request.number }}: $(git log -1 --format=%s)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # The checks job runs these against `vite preview`, which serves only the
+      # static bundle. Here they run against the real Worker and this PR's own
+      # Convex backend, so routing, the /feed/* proxy and the feed itself are
+      # covered.
+      - name: End-to-end tests against the preview
+        if: steps.guard.outputs.enabled == 'true'
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: https://pr-${{ github.event.pull_request.number }}-earferry.earferry.workers.dev
+          EARFERRY_FEED_TOKEN: ${{ steps.seed.outputs.feed-token }}
 
       - name: Publish preview URL
         if: steps.guard.outputs.enabled == 'true'
@@ -159,3 +201,14 @@ jobs:
           --message "$(git log -1 --format=%s)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}
+
+      # A post-deploy smoke test against the real thing. EARFERRY_FEED_TOKEN is
+      # optional; without it the private-feed test skips rather than fails,
+      # since the preview run already covers resolution by token.
+      - name: Smoke test the live site
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: https://earferry.com
+          EARFERRY_FEED_TOKEN: ${{ secrets.EARFERRY_FEED_TOKEN }}

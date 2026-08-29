@@ -11,6 +11,12 @@ set -euo pipefail
 
 if [ -n "${GITHUB_ENV:-}" ]; then
   echo "CONVEX_SITE_URL=${VITE_CONVEX_URL%.convex.cloud}.convex.site" >>"$GITHUB_ENV"
+  # Also record the bare deployment name. `convex deploy --preview-run` only
+  # fires when the backend is newly created, so seeding has to be an explicit
+  # step that names the deployment, or a PR's second push would test an empty
+  # showroom.
+  name="${VITE_CONVEX_URL#https://}"
+  echo "CONVEX_DEPLOYMENT_NAME=${name%%.*}" >>"$GITHUB_ENV"
 fi
 
 bun run build
