@@ -69,19 +69,33 @@ export function youtubeVideoId(canonicalUrl: string): string {
 const ACCESS_BLOCKED =
   /not a bot|sign in to confirm|http error 40[39]\b|http error 429\b|failed to extract any player response/i;
 const UNAVAILABLE_VIDEO = /private|removed|deleted|members.only|sign in|not available/i;
+const ACCESS_BLOCKED_FAILURE = {
+  permanent: false,
+  message: "YouTube is refusing downloads right now. Trying again shortly",
+} as const;
+const UNAVAILABLE_VIDEO_FAILURE = {
+  permanent: true,
+  message: "YouTube does not share this video",
+} as const;
+const GENERIC_FAILURE = {
+  permanent: false,
+  message: "We couldn't finish extracting this video. Trying again shortly",
+} as const;
+const USER_FACING_FAILURES = [
+  ACCESS_BLOCKED_FAILURE,
+  UNAVAILABLE_VIDEO_FAILURE,
+  GENERIC_FAILURE,
+] as const;
 
 export function describeFailure(detail: unknown): { permanent: boolean; message: string } {
   const text = String(detail ?? "");
-  if (ACCESS_BLOCKED.test(text)) {
-    return {
-      permanent: false,
-      message: "YouTube is refusing downloads right now. Trying again shortly",
-    };
-  }
-  if (UNAVAILABLE_VIDEO.test(text)) {
-    return { permanent: true, message: "YouTube does not share this video" };
-  }
-  return { permanent: false, message: "Extraction did not finish. Trying again shortly" };
+  const existingMessage = USER_FACING_FAILURES.find(
+    ({ message }) => text === message || text.startsWith(`${message}:`),
+  );
+  if (existingMessage) return existingMessage;
+  if (ACCESS_BLOCKED.test(text)) return ACCESS_BLOCKED_FAILURE;
+  if (UNAVAILABLE_VIDEO.test(text)) return UNAVAILABLE_VIDEO_FAILURE;
+  return GENERIC_FAILURE;
 }
 
 // Retry pacing for retryable extraction failures. The cumulative waits
@@ -114,8 +128,15 @@ export function publishedDate(metadata: {
   return null;
 }
 
-export function isWaitingLiveStatus(status: unknown): boolean {
-  return status === "is_upcoming" || status === "is_live" || status === "post_live";
+export function isWaitingLiveStatus(
+  status: unknown,
+  releaseTimestamp?: number,
+  now = Date.now(),
+): boolean {
+  if (status === "is_upcoming" || status === "is_live" || status === "post_live") return true;
+
+  const scheduled = Number(releaseTimestamp) * 1_000;
+  return Number.isFinite(scheduled) && scheduled > now;
 }
 
 export function waitingDescription(metadata: {

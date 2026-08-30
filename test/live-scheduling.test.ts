@@ -29,4 +29,15 @@ describe("premiere and live scheduling", () => {
     expect(isWaitingLiveStatus(undefined)).toBe(false);
     expect(isWaitingLiveStatus("unknown_future_status")).toBe(false);
   });
+
+  test("waits for a future release even when the video is reported as not live", () => {
+    const now = Date.parse("2026-01-01T00:00:00Z");
+    const release = now / 1_000 + 3_600;
+
+    expect(isWaitingLiveStatus("not_live", release, now)).toBe(true);
+    expect(isWaitingLiveStatus("not_live", now / 1_000 - 1, now)).toBe(false);
+    expect(waitingDescription({ live_status: "not_live", release_timestamp: release })).toContain(
+      "Scheduled for",
+    );
+  });
 });
