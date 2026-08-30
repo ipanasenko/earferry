@@ -18,7 +18,7 @@ import {
   describeFailure,
 } from "./domain";
 import { currentUser, getOrCreateUser } from "./users";
-import { feedOwner, getOrCreateUserFeed, readyFeedItems, resolveFeed } from "./feeds";
+import { feedItems, feedOwner, getOrCreateUserFeed, readyFeedItems, resolveFeed } from "./feeds";
 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 
@@ -510,22 +510,32 @@ export const deleteExpired = internalMutation({
   },
 });
 
-// The public showroom's episodes never expire, so nothing has to renew them.
-// What can still go wrong is R2 losing an object underneath a feed nobody
-// fetches often, so this re-checks each enclosure and lets verifyAudio
-// re-extract anything that has gone missing.
-export const verifyPermanentFeeds = internalMutation({
+// The public showroom has no owner, so nobody can press retry on it. Without
+// this a failed episode stays failed forever and the demo quietly shrinks.
+// Extraction failures there are usually YouTube refusing a burst of downloads,
+// which clears on its own, so another attempt a day later normally works.
+//
+// Also re-checks that each ready enclosure is still in R2: the showroom's
+// episodes never expire, so nothing else would notice an object going missing.
+export const maintainPermanentFeeds = internalMutation({
   args: {},
   handler: async (ctx) => {
     const feeds = await ctx.db.query("feeds").collect();
-    let checked = 0;
+    let verified = 0;
+    let requeued = 0;
     for (const feed of feeds.filter((candidate) => candidate.permanent)) {
-      for (const item of await readyFeedItems(ctx, feed._id)) {
-        await ctx.scheduler.runAfter(0, internal.extractor.verifyAudio, { itemId: item._id });
-        checked += 1;
+      for (const item of await feedItems(ctx, feed._id)) {
+        if (item.status === "ready" && !isExpiredReady(item)) {
+          await ctx.scheduler.runAfter(0, internal.extractor.verifyAudio, { itemId: item._id });
+          verified += 1;
+        }
+        if (item.status === "failed") {
+          await enqueueItem(ctx, item._id, { phase: undefined, error: undefined, attempts: 0 });
+          requeued += 1;
+        }
       }
     }
-    return { checked };
+    return { verified, requeued };
   },
 });
 

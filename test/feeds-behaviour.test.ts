@@ -72,3 +72,75 @@ describe("permanent feeds", () => {
     expect(item!.expiresAt).toBeGreaterThan(Date.now());
   });
 });
+
+describe("keeping the showroom whole", () => {
+  async function showroomWith(statuses: Array<"ready" | "failed" | "queued">) {
+    const t = testConvex();
+    await t.run(async (ctx) => {
+      const feedId = await ctx.db.insert("feeds", {
+        feedToken: "public",
+        slug: "sample",
+        permanent: true,
+        createdAt: 0,
+      });
+      let position = 0;
+      for (const status of statuses) {
+        position += 1;
+        await ctx.db.insert("items", {
+          feedId,
+          url: YOUTUBE_URL,
+          videoId: `v${position}`,
+          addedAt: 0,
+          position,
+          status,
+          error: status === "failed" ? "YouTube is refusing downloads right now" : undefined,
+        });
+      }
+    });
+    return t;
+  }
+
+  // Nobody owns the showroom, so without this a failed episode stays failed
+  // forever and the demo quietly shrinks.
+  test("gives a failed episode another attempt", async () => {
+    const t = await showroomWith(["ready", "failed", "failed"]);
+
+    const result = await t.mutation(internal.items.maintainPermanentFeeds, {});
+    expect(result.requeued).toBe(2);
+
+    const statuses = await t.run(async (ctx) =>
+      (await ctx.db.query("items").collect()).map((item) => item.status).sort(),
+    );
+    expect(statuses).toEqual(["queued", "queued", "ready"]);
+  });
+
+  test("clears the stale error so the retry starts clean", async () => {
+    const t = await showroomWith(["failed"]);
+
+    await t.mutation(internal.items.maintainPermanentFeeds, {});
+
+    const item = await t.run(async (ctx) => (await ctx.db.query("items").collect())[0]);
+    expect(item.error).toBeUndefined();
+    expect(item.attempts).toBe(0);
+  });
+
+  test("leaves an ordinary feed's failures alone", async () => {
+    const t = testConvex();
+    await t.run(async (ctx) => {
+      const feedId = await ctx.db.insert("feeds", { feedToken: "private", createdAt: 0 });
+      await ctx.db.insert("items", {
+        feedId,
+        url: YOUTUBE_URL,
+        videoId: "v1",
+        addedAt: 0,
+        position: 1,
+        status: "failed",
+      });
+    });
+
+    const result = await t.mutation(internal.items.maintainPermanentFeeds, {});
+
+    // Their owner can press retry, and silently requeuing would hide the failure.
+    expect(result.requeued).toBe(0);
+  });
+});

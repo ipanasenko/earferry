@@ -9,13 +9,12 @@ crons.interval("clean up expired audio", { hours: 1 }, internal.extractor.cleanu
 // this only makes sure every due Convex item was idempotently submitted.
 crons.interval("dispatch queued extractions", { minutes: 5 }, internal.items.dispatchNext);
 
-// The public demo enclosures never expire, so nothing needs renewing. This only
-// re-checks that each MP3 is still in R2 and lets verifyAudio re-extract any
-// that went missing, which is the one way a showroom feed can quietly rot.
+// Keeps the public showroom whole: gives failed episodes another attempt, since
+// nobody owns them to press retry, and re-checks that each MP3 is still in R2.
 crons.daily(
-  "verify permanent feed audio",
+  "maintain permanent feeds",
   { hourUTC: 3, minuteUTC: 17 },
-  internal.items.verifyPermanentFeeds,
+  internal.items.maintainPermanentFeeds,
 );
 
 export default crons;
