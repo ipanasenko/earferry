@@ -203,8 +203,8 @@ export const run = internalAction({
         artworkUrl: metadata.thumbnail ?? undefined,
       });
 
-      if (isWaitingLiveStatus(metadata.live_status)) {
-        // Premiere or live stream: check again once YouTube has the recording.
+      if (isWaitingLiveStatus(metadata.live_status, metadata.release_timestamp)) {
+        // Scheduled premiere or live stream: check again once YouTube has the recording.
         await ctx.runMutation(internal.items.setStatus, {
           itemId: args.itemId,
           status: "waiting",

@@ -167,7 +167,15 @@ export const list = query({
       .withIndex("by_feed", (q) => q.eq("feedId", feedId))
       .order("desc")
       .collect();
-    return items.filter((item) => item.status !== "deleting");
+    return items
+      .filter((item) => item.status !== "deleting")
+      .map((item) => {
+        // Old failed rows may contain extractor diagnostics. Normalize them at
+        // the user-facing boundary while keeping the original detail available
+        // to the internal retry classifier.
+        if (item.status !== "failed" || !item.error) return item;
+        return { ...item, error: describeFailure(item.error).message };
+      });
   },
 });
 
@@ -576,7 +584,7 @@ async function retryOrFailItem(
   await ctx.db.patch(item._id, {
     status: "failed",
     phase: undefined,
-    error: `${failure.message}: ${detail}`.slice(0, 500),
+    error: failure.message,
     attemptToken: undefined,
     extractionStartedAt: undefined,
     lastHeartbeatAt: undefined,
@@ -643,7 +651,7 @@ export const markFailed = internalMutation({
     await ctx.db.patch(args.itemId, {
       status: "failed",
       phase: undefined,
-      error: `${failure.message}: ${args.detail}`.slice(0, 500),
+      error: failure.message,
       attemptToken: undefined,
       extractionStartedAt: undefined,
       lastHeartbeatAt: undefined,
