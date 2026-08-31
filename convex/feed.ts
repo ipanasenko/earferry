@@ -165,7 +165,7 @@ export async function buildFeed(
       <title>${xml(item.title ?? "YouTube audio")}</title>
       <link>${xml(item.url)}</link>
       <guid isPermaLink="false">${xml(item._id)}</guid>
-      <pubDate>${new Date(item.addedAt).toUTCString()}</pubDate>
+      <pubDate>${new Date(item.readyAt ?? item.addedAt).toUTCString()}</pubDate>
       <description>${xml(description)}</description>
       ${chapterXml(item.description)}
       ${item.artworkUrl ? `<itunes:image href="${xml(item.artworkUrl)}" />` : ""}

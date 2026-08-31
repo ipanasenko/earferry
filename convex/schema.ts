@@ -58,6 +58,9 @@ export default defineSchema({
     durationSeconds: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
     addedAt: v.number(),
+    // When the audio became available for podcast clients. Optional for items
+    // created before RSS dates started tracking extraction completion.
+    readyAt: v.optional(v.number()),
     position: v.number(),
     status: itemStatus,
     phase: v.optional(v.string()),

@@ -5,7 +5,7 @@ import { buildFeed } from "../convex/feed";
 const privateFeed = { feedToken: "feed-token" };
 
 describe("podcast feed", () => {
-  test("publishes an episode at the time it was added to the playlist", async () => {
+  test("falls back to the added time for legacy episodes", async () => {
     const addedAt = Date.parse("2026-08-27T09:30:00Z");
     const publishedAt = Date.parse("2020-01-02T03:04:05Z");
     const item = {
@@ -26,6 +26,28 @@ describe("podcast feed", () => {
 
     expect(feed).toContain(`<pubDate>${new Date(addedAt).toUTCString()}</pubDate>`);
     expect(feed).not.toContain(`<pubDate>${new Date(publishedAt).toUTCString()}</pubDate>`);
+  });
+
+  test("publishes a delayed episode when it became ready", async () => {
+    const addedAt = Date.parse("2026-08-30T16:45:14Z");
+    const readyAt = Date.parse("2026-08-31T15:05:00Z");
+    const item = {
+      _id: "delayed-item-id",
+      _creationTime: addedAt,
+      url: "https://www.youtube.com/watch?v=abcdefghijk",
+      videoId: "abcdefghijk",
+      title: "Delayed video",
+      addedAt,
+      readyAt,
+      position: 1,
+      status: "ready",
+      mediaUrl: "https://media.example/delayed-item.mp3",
+    } as unknown as Doc<"items">;
+
+    const feed = await buildFeed([item], "https://earferry.example", privateFeed);
+
+    expect(feed).toContain(`<pubDate>${new Date(readyAt).toUTCString()}</pubDate>`);
+    expect(feed).not.toContain(`<pubDate>${new Date(addedAt).toUTCString()}</pubDate>`);
   });
 
   test("includes the user's name in the feed title and author", async () => {

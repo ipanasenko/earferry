@@ -17,6 +17,7 @@ export interface QueueItemDoc {
   url: string;
   videoId: string;
   addedAt: number;
+  readyAt?: number;
   position: number;
   status: ItemStatus;
   phase?: string;

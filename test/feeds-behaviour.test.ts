@@ -71,6 +71,14 @@ describe("permanent feeds", () => {
     const item = await readyItemIn(testConvex(), false);
     expect(item!.expiresAt).toBeGreaterThan(Date.now());
   });
+
+  test("records when a normal episode became ready", async () => {
+    const before = Date.now();
+    const item = await readyItemIn(testConvex(), false);
+
+    expect(item!.readyAt).toBeGreaterThanOrEqual(before);
+    expect(item!.readyAt).toBeLessThanOrEqual(Date.now());
+  });
 });
 
 describe("keeping the showroom whole", () => {
