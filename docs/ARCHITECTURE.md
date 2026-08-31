@@ -181,6 +181,10 @@ points at either shape.
   earferry-extractor Worker directly from R2 (byte-range support). Convex signs
   and stores the URL on the item when it becomes ready.
 
+RSS episode `pubDate` uses the time the item became ready, so delayed or
+scheduled videos sort alongside their actual availability in podcast clients.
+Legacy items without that timestamp fall back to their original `addedAt`.
+
 ## Conventions
 
 - Pre-commit (lefthook) normalizes any private Wix registry URLs out of

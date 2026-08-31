@@ -223,7 +223,11 @@ export const add = mutation({
           expiresAt: undefined,
         });
       } else {
-        await ctx.db.patch(existing._id, { position, addedAt: now });
+        await ctx.db.patch(existing._id, {
+          position,
+          addedAt: now,
+          ...(existing.status === "ready" ? { readyAt: now } : {}),
+        });
         if (existing.status === "ready") {
           // Reusing stored audio: make sure it is actually still there.
           await ctx.scheduler.runAfter(0, internal.extractor.verifyAudio, {
@@ -489,11 +493,13 @@ export const markReady = internalMutation({
     // episodes are never given a deadline. Nothing else deletes ready audio, so
     // "no expiresAt" is the whole mechanism.
     const feed = item.feedId ? await ctx.db.get(item.feedId) : null;
-    const expiresAt = feed?.permanent ? undefined : renewedAudioExpiry();
+    const readyAt = Date.now();
+    const expiresAt = feed?.permanent ? undefined : renewedAudioExpiry(readyAt);
     const position = item.feedId ? await topPosition(ctx, item.feedId) : item.position;
     await ctx.db.patch(args.itemId, {
       status: "ready",
       position,
+      readyAt,
       phase: undefined,
       error: undefined,
       attempts: 0,
