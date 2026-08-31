@@ -119,7 +119,8 @@ optional `FEED_BASE_URL`.
 
 ## Convex API contract (frontend <-> backend)
 
-- `api.items.list()` — current user's items, newest position first.
+- `api.items.list()` — current user's items, with waiting premieres/live videos
+  first and newest position first within each group.
 - `api.items.add({ url })` — validate + enqueue; re-adding a video bumps it to top.
 - `api.items.remove({ id })`
 - `api.items.retry({ id })`
@@ -129,6 +130,10 @@ Item statuses: `queued | probing | waiting | extracting | uploading | ready | fa
 UI groups them as: Ready (green), Extracting (blue, covers queued/probing/
 extracting/uploading, shows live phase text), Waiting (amber, premieres/live),
 Failed (red, with retry).
+
+Waiting items stay at the top of the visible playlist. When one finishes
+extraction, its position is promoted atomically so it is emitted first in the
+podcast feed as soon as it becomes ready.
 
 ## Saving a link
 

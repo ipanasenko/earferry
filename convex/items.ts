@@ -22,6 +22,16 @@ import { feedItems, feedOwner, getOrCreateUserFeed, readyFeedItems, resolveFeed 
 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 
+// Keep scheduled/live items at the top of the visible playlist. Within the
+// waiting group and the remaining items, preserve the user's position order.
+function playlistOrder(
+  left: Pick<Doc<"items">, "status" | "position">,
+  right: Pick<Doc<"items">, "status" | "position">,
+): number {
+  const waitingPriority = Number(right.status === "waiting") - Number(left.status === "waiting");
+  return waitingPriority || right.position - left.position;
+}
+
 export function renewedAudioExpiry(now = Date.now()): number {
   return now + AUDIO_RETENTION_MS;
 }
@@ -169,6 +179,7 @@ export const list = query({
       .collect();
     return items
       .filter((item) => item.status !== "deleting")
+      .toSorted(playlistOrder)
       .map((item) => {
         // Old failed rows may contain extractor diagnostics. Normalize them at
         // the user-facing boundary while keeping the original detail available
@@ -479,8 +490,10 @@ export const markReady = internalMutation({
     // "no expiresAt" is the whole mechanism.
     const feed = item.feedId ? await ctx.db.get(item.feedId) : null;
     const expiresAt = feed?.permanent ? undefined : renewedAudioExpiry();
+    const position = item.feedId ? await topPosition(ctx, item.feedId) : item.position;
     await ctx.db.patch(args.itemId, {
       status: "ready",
+      position,
       phase: undefined,
       error: undefined,
       attempts: 0,
