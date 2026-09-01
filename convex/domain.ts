@@ -198,6 +198,11 @@ const GENERIC_FAILURE = {
 // yt-dlp: a paywall or an unreadable page is permanent, anything else retries.
 const ARTICLE_UNREADABLE =
   /paywall|subscriber|subscription|sign in|log ?in required|http error 40[13]\b|answered (401|403|451)\b|forbidden|no readable|could ?n.t read|not an article/i;
+const ARTICLE_TOO_LONG = /too long to narrate/i;
+const ARTICLE_TOO_LONG_FAILURE = {
+  permanent: true,
+  message: "This article is too long to narrate.",
+} as const;
 const ARTICLE_UNREADABLE_FAILURE = {
   permanent: true,
   message: "This article is subscriber-only or couldn't be read.",
@@ -210,6 +215,7 @@ const USER_FACING_FAILURES = [
   ACCESS_BLOCKED_FAILURE,
   UNAVAILABLE_VIDEO_FAILURE,
   GENERIC_FAILURE,
+  ARTICLE_TOO_LONG_FAILURE,
   ARTICLE_UNREADABLE_FAILURE,
   ARTICLE_GENERIC_FAILURE,
 ] as const;
@@ -224,6 +230,7 @@ export function describeFailure(
   );
   if (existingMessage) return existingMessage;
   if (kind === "article") {
+    if (ARTICLE_TOO_LONG.test(text)) return ARTICLE_TOO_LONG_FAILURE;
     if (ARTICLE_UNREADABLE.test(text)) return ARTICLE_UNREADABLE_FAILURE;
     return ARTICLE_GENERIC_FAILURE;
   }

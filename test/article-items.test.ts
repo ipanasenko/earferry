@@ -137,6 +137,21 @@ describe("article failure wording", () => {
     expect(item?.status).toBe("failed");
     expect(item?.error).toBe("This article is subscriber-only or couldn't be read.");
   });
+
+  test("an over-cap article fails permanently as too long", async () => {
+    const t = testConvex();
+    const itemId = await insertArticle(t, { status: "probing" });
+
+    await t.mutation(internal.items.retryOrFail, {
+      itemId,
+      detail: "Article is too long to narrate (31824 words; the limit is 15000)",
+      retryable: false,
+    });
+
+    const item = await t.run(async (ctx) => ctx.db.get(itemId));
+    expect(item?.status).toBe("failed");
+    expect(item?.error).toBe("This article is too long to narrate.");
+  });
 });
 
 describe("article heartbeat wording", () => {
