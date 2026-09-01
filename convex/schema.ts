@@ -51,12 +51,7 @@ export default defineSchema({
     // express that, the same as users.feedId.
     feedId: v.optional(v.id("feeds")),
     url: v.string(),
-    // Dedupe key inside a feed: the YouTube video id for videos, a hash of the
-    // canonical URL ("a:" + sha256 prefix) for articles. The column name
-    // predates articles.
     videoId: v.string(),
-    // Absent means video; only articles carry a kind.
-    kind: v.optional(v.union(v.literal("video"), v.literal("article"))),
     title: v.optional(v.string()),
     channel: v.optional(v.string()),
     description: v.optional(v.string()),

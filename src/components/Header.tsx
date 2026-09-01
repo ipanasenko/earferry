@@ -71,7 +71,7 @@ function BookmarkletButton() {
   return (
     <Tooltip
       label="Drag me to your bookmarks bar"
-      hint="Then click it on any YouTube video or article to ferry it straight into your feed."
+      hint="Then click it on any YouTube page to ferry the video straight into your feed."
     >
       <a
         // React blocks javascript: URLs set via props; the bookmarklet needs one.
