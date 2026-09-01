@@ -9,11 +9,12 @@ import {
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import {
-  classifyUrl,
   EXTRACTION_LEASE_MS,
   isExpiredReady,
   MAX_AUTO_RETRIES,
+  normalizeYouTubeUrl,
   retryDelayMs,
+  youtubeVideoId,
   describeFailure,
 } from "./domain";
 import { currentUser, getOrCreateUser } from "./users";
@@ -106,7 +107,7 @@ export const dispatchNext = internalMutation({
       const startedAt = Date.now();
       await ctx.db.patch(item._id, {
         status: "probing",
-        phase: item.kind === "article" ? "Checking article" : "Checking video",
+        phase: "Checking video",
         extractionStartedAt: startedAt,
       });
       await ctx.scheduler.runAfter(EXTRACTION_LEASE_MS, internal.items.recoverProbe, {
@@ -184,7 +185,7 @@ export const list = query({
         // the user-facing boundary while keeping the original detail available
         // to the internal retry classifier.
         if (item.status !== "failed" || !item.error) return item;
-        return { ...item, error: describeFailure(item.error, item.kind ?? "video").message };
+        return { ...item, error: describeFailure(item.error).message };
       });
   },
 });
@@ -192,7 +193,8 @@ export const list = query({
 export const add = mutation({
   args: { url: v.string() },
   handler: async (ctx, args) => {
-    const { kind, canonicalUrl: url, dedupeKey: videoId } = classifyUrl(args.url);
+    const url = normalizeYouTubeUrl(args.url);
+    const videoId = youtubeVideoId(url);
     const user = await getOrCreateUser(ctx);
     const feed = await getOrCreateUserFeed(ctx, user);
     const now = Date.now();
@@ -240,7 +242,6 @@ export const add = mutation({
       feedId: feed._id,
       url,
       videoId,
-      kind: kind === "article" ? "article" : undefined,
       addedAt: now,
       position: await topPosition(ctx, feed._id),
       status: "queued",
@@ -598,7 +599,7 @@ async function retryOrFailItem(
     );
     return;
   }
-  const failure = describeFailure(detail, item.kind ?? "video");
+  const failure = describeFailure(detail);
   await ctx.db.patch(item._id, {
     status: "failed",
     phase: undefined,
@@ -665,7 +666,7 @@ export const markFailed = internalMutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.itemId);
     if (!item || ["ready", "deleting"].includes(item.status)) return;
-    const failure = describeFailure(args.detail, item.kind ?? "video");
+    const failure = describeFailure(args.detail);
     await ctx.db.patch(args.itemId, {
       status: "failed",
       phase: undefined,

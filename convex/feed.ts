@@ -153,18 +153,16 @@ export async function buildFeed(
   const entries = items
     .map((item, index) => {
       const media = mediaUrls[index];
-      const article = item.kind === "article";
-      const fallbackTitle = article ? "Article audio" : "YouTube audio";
       const description = [
         item.description ||
           (item.channel
-            ? `${item.title ?? fallbackTitle} · ${item.channel}`
-            : (item.title ?? fallbackTitle)),
-        `${article ? "Original article" : "Original video"}: ${item.url}`,
+            ? `${item.title ?? "YouTube audio"} · ${item.channel}`
+            : (item.title ?? "YouTube audio")),
+        `Original video: ${item.url}`,
       ].join("\n\n");
       return `
     <item>
-      <title>${xml(item.title ?? fallbackTitle)}</title>
+      <title>${xml(item.title ?? "YouTube audio")}</title>
       <link>${xml(item.url)}</link>
       <guid isPermaLink="false">${xml(item._id)}</guid>
       <pubDate>${new Date(item.readyAt ?? item.addedAt).toUTCString()}</pubDate>

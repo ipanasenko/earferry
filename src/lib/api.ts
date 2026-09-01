@@ -16,8 +16,6 @@ export interface QueueItemDoc {
   _creationTime: number;
   url: string;
   videoId: string;
-  /** Absent means video. */
-  kind?: "video" | "article";
   addedAt: number;
   readyAt?: number;
   position: number;
