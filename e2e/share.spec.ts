@@ -15,11 +15,19 @@ test("a shared YouTube link waits on the landing page until sign-in", async ({ p
   await expect(page.getByText("youtu.be/dQw4w9WgXcQ")).toBeVisible();
 });
 
-test("a shared link that is not from YouTube stops with an explanation", async ({ page }) => {
-  await page.goto(`/share?text=${encodeURIComponent("https://example.com/some-video")}`);
+test("a shared article link waits on the landing page like a video", async ({ page, baseURL }) => {
+  await page.goto(`/share?text=${encodeURIComponent("https://example.com/some-article")}`);
+
+  await expect(page).toHaveURL(new URL("/", baseURL).toString());
+  await expect(page.getByText("Your link is on the dock.")).toBeVisible();
+  await expect(page.getByText("example.com/some-article")).toBeVisible();
+});
+
+test("a share with no usable link stops with an explanation", async ({ page }) => {
+  await page.goto(`/share?text=${encodeURIComponent("just some words, no link")}`);
 
   await expect(
-    page.getByRole("heading", { level: 1, name: "That link isn't from YouTube." }),
+    page.getByRole("heading", { level: 1, name: "That share had no link we can ferry." }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to your queue" })).toBeVisible();
 });
