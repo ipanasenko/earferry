@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-import { SignedIn, SignedOut } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 import { useCaptureAddParam } from "./lib/pendingAdd";
 
 // Start the public landing route alongside Clerk instead of waiting for Clerk
@@ -33,20 +33,16 @@ function Home() {
   // Above the auth split on purpose: a shared link has to survive landing here
   // signed out, and both branches below read only what this has stored.
   useCaptureAddParam();
+  const { isLoaded, isSignedIn } = useAuth();
 
-  return (
-    <>
-      {/* Clerk runs in `waitlist` sign-up mode, so an account only exists
-          once it has been approved. Signed in therefore means invited, and
-          there is nothing further to gate on. */}
-      <SignedIn>
-        <QueuePage />
-      </SignedIn>
-      <SignedOut>
-        <LandingPage />
-      </SignedOut>
-    </>
-  );
+  // The landing page is public, so do not leave a blank screen while Clerk's
+  // remote client initializes. Private queue data is still rendered only
+  // after Clerk has positively resolved a signed-in session.
+  if (!isLoaded || !isSignedIn) return <LandingPage />;
+
+  // Clerk runs in `waitlist` sign-up mode, so an account only exists once it
+  // has been approved. Signed in therefore means invited.
+  return <QueuePage />;
 }
 
 export default function App() {
