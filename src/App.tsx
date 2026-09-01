@@ -1,14 +1,32 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { SignedIn, SignedOut } from "@clerk/clerk-react";
 import { useCaptureAddParam } from "./lib/pendingAdd";
-import { LandingPage } from "./pages/Landing";
-import { QueuePage } from "./pages/Queue";
-import { WaitlistPage } from "./pages/Waitlist";
-import { PrivacyPage } from "./pages/Privacy";
-import { TermsPage } from "./pages/Terms";
-import { SupportPage } from "./pages/Support";
-import { SharePage } from "./pages/Share";
-import { NotFoundPage } from "./pages/NotFound";
+
+const LandingPage = lazy(() =>
+  import("./pages/Landing").then(({ LandingPage }) => ({ default: LandingPage })),
+);
+const QueuePage = lazy(() =>
+  import("./pages/Queue").then(({ QueuePage }) => ({ default: QueuePage })),
+);
+const WaitlistPage = lazy(() =>
+  import("./pages/Waitlist").then(({ WaitlistPage }) => ({ default: WaitlistPage })),
+);
+const PrivacyPage = lazy(() =>
+  import("./pages/Privacy").then(({ PrivacyPage }) => ({ default: PrivacyPage })),
+);
+const TermsPage = lazy(() =>
+  import("./pages/Terms").then(({ TermsPage }) => ({ default: TermsPage })),
+);
+const SupportPage = lazy(() =>
+  import("./pages/Support").then(({ SupportPage }) => ({ default: SupportPage })),
+);
+const SharePage = lazy(() =>
+  import("./pages/Share").then(({ SharePage }) => ({ default: SharePage })),
+);
+const NotFoundPage = lazy(() =>
+  import("./pages/NotFound").then(({ NotFoundPage }) => ({ default: NotFoundPage })),
+);
 
 function Home() {
   // Above the auth split on purpose: a shared link has to survive landing here
@@ -32,14 +50,16 @@ function Home() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/terms" element={<TermsPage />} />
-      <Route path="/support" element={<SupportPage />} />
-      <Route path="/join" element={<WaitlistPage />} />
-      <Route path="/share" element={<SharePage />} />
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    <Suspense fallback={null}>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/support" element={<SupportPage />} />
+        <Route path="/join" element={<WaitlistPage />} />
+        <Route path="/share" element={<SharePage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Suspense>
   );
 }
