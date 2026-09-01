@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import manifest from "../public/manifest.webmanifest" with { type: "json" };
-import { firstYouTubeUrl, shortenUrl } from "../src/lib/shareUrl";
+import { firstShareableUrl, firstYouTubeUrl, shortenUrl } from "../src/lib/shareUrl";
 
 describe("share target link extraction", () => {
   // The four cases the Android share activity was tested against, kept as the
@@ -60,6 +60,26 @@ describe("share target link extraction", () => {
     expect(firstYouTubeUrl("https://:::/ https://youtu.be/abcdefghijk")).toBe(
       "https://youtu.be/abcdefghijk",
     );
+  });
+});
+
+describe("firstShareableUrl", () => {
+  test("prefers a YouTube link over an earlier article link", () => {
+    expect(firstShareableUrl("https://example.com/post and https://youtu.be/abcdefghijk")).toBe(
+      "https://youtu.be/abcdefghijk",
+    );
+  });
+
+  test("falls back to the first https link when there is no YouTube link", () => {
+    expect(firstShareableUrl("Read this https://example.com/post.")).toBe(
+      "https://example.com/post",
+    );
+  });
+
+  test("refuses insecure links and shares with no link at all", () => {
+    expect(firstShareableUrl("http://example.com/post")).toBeNull();
+    expect(firstShareableUrl("No URL here")).toBeNull();
+    expect(firstShareableUrl(null, undefined, "")).toBeNull();
   });
 });
 

@@ -4,7 +4,7 @@ import { Header } from "../components/Header";
 import { DrowningEarMark } from "../components/icons";
 import { track } from "../lib/analytics";
 import { usePageMeta } from "../lib/meta";
-import { firstYouTubeUrl } from "../lib/shareUrl";
+import { firstShareableUrl } from "../lib/shareUrl";
 
 /**
  * The Android share sheet lands here, through the `share_target` entry in the
@@ -13,12 +13,13 @@ import { firstYouTubeUrl } from "../lib/shareUrl";
  *
  * The fields are scanned in the order Android fills them: the URL almost always
  * arrives inside `text`, because Android's share system has no URL extra at
- * all. Anything that is not a YouTube link stops here rather than reaching the
- * queue, which is the one place a person can see why nothing happened.
+ * all. A share that carries no usable https link stops here rather than
+ * reaching the queue, which is the one place a person can see why nothing
+ * happened.
  */
 export function SharePage() {
   const [searchParams] = useSearchParams();
-  const shared = firstYouTubeUrl(
+  const shared = firstShareableUrl(
     searchParams.get("text"),
     searchParams.get("url"),
     searchParams.get("title"),
@@ -32,13 +33,13 @@ export function SharePage() {
   // target, the bookmarklet and anything else that arrives from outside.
   if (shared) return <Navigate to={`/?add=${encodeURIComponent(shared)}`} replace />;
 
-  return <NotAYouTubeLink />;
+  return <NoUsableLink />;
 }
 
-function NotAYouTubeLink() {
+function NoUsableLink() {
   usePageMeta({
     title: "Shared link · EarFerry",
-    description: "EarFerry only ferries YouTube videos.",
+    description: "EarFerry ferries YouTube videos and articles.",
     noindex: true,
   });
 
@@ -49,11 +50,11 @@ function NotAYouTubeLink() {
         <section className="flex flex-col items-center pt-11 gap-5">
           <DrowningEarMark />
           <h1 className="font-extrabold tracking-tight text-center text-ink text-[32px]/10 md:text-display/display">
-            That link isn't from YouTube.
+            That share had no link we can ferry.
           </h1>
           <p className="max-w-105 text-center text-text-muted text-base/base">
-            EarFerry only ferries YouTube videos. Share one from YouTube and we'll pull the audio
-            out for you.
+            EarFerry ferries YouTube videos and web articles. Share a link to one and we'll turn it
+            into audio for you.
           </p>
           <Link
             to="/"

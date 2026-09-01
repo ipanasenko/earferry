@@ -8,7 +8,8 @@ export function EmptyState() {
         Nothing to hear yet?
       </div>
       <div className="text-center max-w-105 text-text-muted text-base/base px-4">
-        Paste a YouTube link above and EarFerry will carry the audio to your podcast feed.
+        Paste a YouTube or article link above and EarFerry will carry the audio to your podcast
+        feed.
       </div>
     </div>
   );

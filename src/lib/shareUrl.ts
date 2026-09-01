@@ -42,6 +42,29 @@ export function firstYouTubeUrl(...fields: (string | null | undefined)[]): strin
   return null;
 }
 
+/**
+ * The link worth ferrying out of shared text: a YouTube link when one is
+ * present, otherwise the first https link, which is treated as an article.
+ */
+export function firstShareableUrl(...fields: (string | null | undefined)[]): string | null {
+  const youtube = firstYouTubeUrl(...fields);
+  if (youtube) return youtube;
+  for (const field of fields) {
+    if (!field) continue;
+    for (const match of field.matchAll(HTTP_URL)) {
+      const candidate = match[0].replace(TRAILING_PUNCTUATION, "");
+      let url: URL;
+      try {
+        url = new URL(candidate);
+      } catch {
+        continue;
+      }
+      if (url.protocol === "https:" && url.hostname.includes(".")) return candidate;
+    }
+  }
+  return null;
+}
+
 /** `https://www.youtube.com/watch?v=x` reads as `youtube.com/watch?v=x`. */
 export function shortenUrl(url: string): string {
   return url.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
