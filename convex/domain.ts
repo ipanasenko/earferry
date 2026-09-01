@@ -197,7 +197,7 @@ const GENERIC_FAILURE = {
 // Article failures come from the reader/TTS side of the extractor rather than
 // yt-dlp: a paywall or an unreadable page is permanent, anything else retries.
 const ARTICLE_UNREADABLE =
-  /paywall|subscriber|subscription|sign in|log ?in required|http error 40[13]\b|forbidden|no readable|could ?n.t read|not an article/i;
+  /paywall|subscriber|subscription|sign in|log ?in required|http error 40[13]\b|answered (401|403|451)\b|forbidden|no readable|could ?n.t read|not an article/i;
 const ARTICLE_UNREADABLE_FAILURE = {
   permanent: true,
   message: "This article is subscriber-only or couldn't be read.",

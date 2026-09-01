@@ -140,7 +140,7 @@ describe("article failure wording", () => {
 });
 
 describe("article heartbeat wording", () => {
-  test("the downloading phase reads as narration for articles", async () => {
+  test("the downloading and synthesizing phases read as article work", async () => {
     const t = testConvex();
     process.env.INTERNAL_SECRET = "test-secret";
     const itemId = await insertArticle(t, {
@@ -157,7 +157,18 @@ describe("article heartbeat wording", () => {
     expect(response.status).toBe(200);
 
     const item = await t.run(async (ctx) => ctx.db.get(itemId));
-    expect(item?.phase).toBe("Reading the article aloud");
+    expect(item?.phase).toBe("Fetching the article");
+
+    const synthResponse = await t.fetch("/internal/extract-heartbeat", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret", "content-type": "application/json" },
+      body: JSON.stringify({ itemId, phase: "synthesizing", attempt: "attempt-1" }),
+    });
+    expect(synthResponse.status).toBe(200);
+
+    const narrating = await t.run(async (ctx) => ctx.db.get(itemId));
+    expect(narrating?.phase).toBe("Turning the article into audio");
+    expect(narrating?.status).toBe("extracting");
   });
 
   test("a video keeps the downloading wording", async () => {

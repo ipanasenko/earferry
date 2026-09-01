@@ -179,17 +179,20 @@ http.route({
     }
 
     // The item is already loaded above, so its kind picks the wording for
-    // free: article audio is narrated, not downloaded.
+    // free: article audio is narrated, not downloaded. Articles report an
+    // extra "synthesizing" phase between fetching the page and uploading.
     const phase =
       body.phase === "downloading"
         ? item.kind === "article"
-          ? "Reading the article aloud"
+          ? "Fetching the article"
           : "Downloading and converting audio"
-        : body.phase === "uploading"
-          ? "Uploading MP3"
-          : body.phase === "finalizing"
-            ? "Finalizing MP3"
-            : undefined;
+        : body.phase === "synthesizing"
+          ? "Turning the article into audio"
+          : body.phase === "uploading"
+            ? "Uploading MP3"
+            : body.phase === "finalizing"
+              ? "Finalizing MP3"
+              : undefined;
     await ctx.runMutation(internal.items.recordHeartbeat, {
       itemId,
       attempt: typeof body.attempt === "string" ? body.attempt : undefined,
