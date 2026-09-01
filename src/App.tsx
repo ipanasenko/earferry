@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { useCaptureAddParam } from "./lib/pendingAdd";
+import { homeViewForAuth } from "./lib/homeView";
 
 // Start the public landing route alongside Clerk instead of waiting for Clerk
 // to resolve the signed-out state before discovering its chunk.
@@ -29,16 +30,23 @@ const NotFoundPage = lazy(() =>
   import("./pages/NotFound").then(({ NotFoundPage }) => ({ default: NotFoundPage })),
 );
 
+function HomeLoading() {
+  return (
+    <main className="min-h-screen flex items-center justify-center text-text-muted text-sm/4.5">
+      Loading EarFerry…
+    </main>
+  );
+}
+
 function Home() {
   // Above the auth split on purpose: a shared link has to survive landing here
   // signed out, and both branches below read only what this has stored.
   useCaptureAddParam();
   const { isLoaded, isSignedIn } = useAuth();
+  const view = homeViewForAuth(isLoaded, isSignedIn);
 
-  // The landing page is public, so do not leave a blank screen while Clerk's
-  // remote client initializes. Private queue data is still rendered only
-  // after Clerk has positively resolved a signed-in session.
-  if (!isLoaded || !isSignedIn) return <LandingPage />;
+  if (view === "loading") return <HomeLoading />;
+  if (view === "landing") return <LandingPage />;
 
   // Clerk runs in `waitlist` sign-up mode, so an account only exists once it
   // has been approved. Signed in therefore means invited.
