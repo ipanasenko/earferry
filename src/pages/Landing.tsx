@@ -10,7 +10,7 @@ import { peekPendingAdd } from "../lib/pendingAdd";
 const FEATURES = [
   {
     title: "Paste a link",
-    body: "Drop in any YouTube URL, or save it in one click with the bookmarklet.",
+    body: "Drop in any YouTube or article URL, or save it in one click with the bookmarklet.",
   },
   {
     title: "We extract the audio",

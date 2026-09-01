@@ -48,8 +48,8 @@ export function AddForm() {
             setUrl(e.target.value);
             setError(null);
           }}
-          placeholder="https://youtube.com/watch?v=…"
-          aria-label="YouTube URL"
+          placeholder="Paste a YouTube or article link"
+          aria-label="Paste a YouTube or article link"
           className="grow min-w-0 bg-transparent outline-none text-text placeholder:text-text-muted text-base/4.5"
         />
         <button

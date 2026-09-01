@@ -13,6 +13,7 @@ import {
   RssIcon as HugeRss,
   Tick01Icon as HugeTick,
   HandHeartIcon as HugeHandHeart,
+  LinkSquare02Icon as HugeLinkSquare,
 } from "@hugeicons/core-free-icons";
 
 export function LogoMark({ size = 38 }: { size?: number }) {
@@ -176,6 +177,34 @@ export function FailedThumbMark() {
   );
 }
 
+/** Document glyph used as the article thumbnail fallback in queue rows. */
+export function ArticleThumbMark() {
+  return (
+    <svg
+      width="34"
+      height="34"
+      viewBox="0 0 120 120"
+      xmlns="http://www.w3.org/2000/svg"
+      className="shrink-0"
+      aria-hidden="true"
+    >
+      <rect
+        x="26"
+        y="14"
+        width="68"
+        height="92"
+        rx="12"
+        fill="none"
+        stroke="var(--color-ink)"
+        strokeWidth="8"
+      />
+      <path d="M42 42 H78" stroke="var(--color-wave)" strokeWidth="8" strokeLinecap="round" />
+      <path d="M42 62 H78" stroke="var(--color-wave)" strokeWidth="8" strokeLinecap="round" />
+      <path d="M42 82 H64" stroke="var(--color-wave)" strokeWidth="8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** Large drowning-ear illustration for the 404 page. */
 export function DrowningEarMark() {
   return (
@@ -251,6 +280,10 @@ export function PauseIcon({ stroke = "var(--color-background)" }: IconProps) {
 
 export function YoutubeIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
   return <UiIcon icon={HugeYoutube} stroke={stroke} />;
+}
+
+export function LinkOutIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
+  return <UiIcon icon={HugeLinkSquare} stroke={stroke} />;
 }
 
 export function TrashIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
