@@ -3,9 +3,10 @@ import { Routes, Route } from "react-router-dom";
 import { SignedIn, SignedOut } from "@clerk/clerk-react";
 import { useCaptureAddParam } from "./lib/pendingAdd";
 
-const LandingPage = lazy(() =>
-  import("./pages/Landing").then(({ LandingPage }) => ({ default: LandingPage })),
-);
+// Start the public landing route alongside Clerk instead of waiting for Clerk
+// to resolve the signed-out state before discovering its chunk.
+const landingPage = import("./pages/Landing").then(({ LandingPage }) => ({ default: LandingPage }));
+const LandingPage = lazy(() => landingPage);
 const QueuePage = lazy(() =>
   import("./pages/Queue").then(({ QueuePage }) => ({ default: QueuePage })),
 );
