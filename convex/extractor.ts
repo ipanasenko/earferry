@@ -112,14 +112,21 @@ async function extractorFetch(
   }
 }
 
+export type ExtractionSource = "youtube" | "article";
+
+export function extractionSource(item: { kind?: string }): ExtractionSource {
+  return item.kind === "article" ? "article" : "youtube";
+}
+
 export async function probeVideo(
   baseUrl: string,
   secret: string,
   url: string,
+  source: ExtractionSource = "youtube",
 ): Promise<ProbeMetadata> {
   const response = await extractorFetch(baseUrl, secret, "/probe", {
     method: "POST",
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, source }),
   });
   if (!response.ok) {
     throw new Error(await extractorError(response, "The extractor could not read this video"));
@@ -130,7 +137,13 @@ export async function probeVideo(
 export async function startExtraction(
   baseUrl: string,
   secret: string,
-  job: { itemId: string; url: string; attemptToken: string; queueOrder: number },
+  job: {
+    itemId: string;
+    url: string;
+    attemptToken: string;
+    queueOrder: number;
+    source: ExtractionSource;
+  },
 ): Promise<void> {
   const response = await extractorFetch(baseUrl, secret, "/extract", {
     method: "POST",
@@ -191,7 +204,7 @@ export const run = internalAction({
     let attemptToken: string | null = null;
 
     try {
-      const metadata = await probeVideo(baseUrl, secret, item.url);
+      const metadata = await probeVideo(baseUrl, secret, item.url, extractionSource(item));
       const duration = Number(metadata.duration);
       await ctx.runMutation(internal.items.recordProbe, {
         itemId: args.itemId,
@@ -227,6 +240,7 @@ export const run = internalAction({
         url: item.url,
         attemptToken,
         queueOrder: item.nextAttemptAt ?? item.addedAt,
+        source: extractionSource(item),
       });
     } catch (error) {
       const detail = String((error as Error)?.message ?? error).slice(0, 500);
@@ -247,7 +261,7 @@ export const run = internalAction({
       await ctx.runMutation(internal.items.retryOrFail, {
         itemId: args.itemId,
         detail,
-        retryable: !describeFailure(detail).permanent,
+        retryable: !describeFailure(detail, item.kind ?? "video").permanent,
         observedStartedAt: args.startedAt,
       });
     }
@@ -281,6 +295,7 @@ export const recover = internalAction({
           url: item.url,
           attemptToken: item.attemptToken,
           queueOrder: item.nextAttemptAt ?? item.addedAt,
+          source: extractionSource(item),
         });
       }
       await ctx.runMutation(internal.items.recordQueuePresence, {

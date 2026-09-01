@@ -178,9 +178,13 @@ http.route({
       return json({ error: "Extraction attempt is no longer active" }, 409);
     }
 
+    // The item is already loaded above, so its kind picks the wording for
+    // free: article audio is narrated, not downloaded.
     const phase =
       body.phase === "downloading"
-        ? "Downloading and converting audio"
+        ? item.kind === "article"
+          ? "Reading the article aloud"
+          : "Downloading and converting audio"
         : body.phase === "uploading"
           ? "Uploading MP3"
           : body.phase === "finalizing"

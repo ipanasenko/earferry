@@ -5,9 +5,11 @@ import { api, type QueueItemDoc } from "../lib/api";
 import { track } from "../lib/analytics";
 import { errorMessage } from "../lib/errors";
 import {
+  ArticleThumbMark,
   CancelIcon,
   ConfirmIcon,
   FailedThumbMark,
+  LinkOutIcon,
   PlayIcon,
   RetryIcon,
   TrashIcon,
@@ -44,16 +46,29 @@ function formatDuration(seconds: number): string {
   return `${h} h ${minutes % 60} min`;
 }
 
+function urlHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "");
+  } catch {
+    return url;
+  }
+}
+
 function subtitle(item: QueueItemDoc, ui: UiStatus): string {
-  const channel = item.channel ?? "Unknown channel";
+  const article = item.kind === "article";
+  // An article's byline is its site, not a channel.
+  const source = article ? urlHostname(item.url) : (item.channel ?? "Unknown channel");
   if (ui === "ready") {
-    const parts = [channel];
-    if (item.durationSeconds) parts.push(formatDuration(item.durationSeconds));
+    const parts = [source];
+    if (item.durationSeconds) {
+      const duration = formatDuration(item.durationSeconds);
+      parts.push(article ? `${duration} listen` : duration);
+    }
     parts.push(formatDate(item.publishedAt ?? item.addedAt));
     return parts.join(" · ");
   }
-  if (ui === "failed") return `${channel} · ${item.error ?? "extraction failed"}`;
-  return `${channel} · ${item.phase ?? (ui === "waiting" ? "waiting to go live" : "getting ready…")}`;
+  if (ui === "failed") return `${source} · ${item.error ?? "extraction failed"}`;
+  return `${source} · ${item.phase ?? (ui === "waiting" ? "waiting to go live" : "getting ready…")}`;
 }
 
 // Keep the card preview at 4:3 while cropping YouTube's native 16:9 image.
@@ -61,10 +76,25 @@ const thumbSizeClass = "w-20 sm:w-19 aspect-[4/3]";
 
 function Thumbnail({ item, ui }: { item: QueueItemDoc; ui: UiStatus }) {
   const [broken, setBroken] = useState(false);
+  const article = item.kind === "article";
   // Generated square artwork belongs in the podcast feed and MP3 metadata.
-  // Keep the web queue tied to the original YouTube preview instead.
-  const src = item.videoId ? `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg` : null;
+  // Keep the web queue tied to the original YouTube preview instead. An
+  // article's preview is its og:image, captured by the probe as artworkUrl.
+  const src = article
+    ? (item.artworkUrl ?? null)
+    : item.videoId
+      ? `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`
+      : null;
 
+  if (article && (broken || !src)) {
+    return (
+      <div
+        className={`${thumbSizeClass} shrink-0 flex items-center justify-center rounded-sm overflow-clip bg-surface border border-solid border-border`}
+      >
+        {ui === "failed" ? <FailedThumbMark /> : <ArticleThumbMark />}
+      </div>
+    );
+  }
   if (ui === "failed" && (broken || !src)) {
     return (
       <div
@@ -140,7 +170,11 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
   const remove = useMutation(api.items.remove);
   const retry = useMutation(api.items.retry);
   const ui = uiStatus(item.status);
-  const pill = STATUS_PILL[ui];
+  // Articles are read aloud, not extracted, so the in-progress pill says so.
+  const pill =
+    item.kind === "article" && ui === "extracting"
+      ? { ...STATUS_PILL.extracting, label: "Narrating" }
+      : STATUS_PILL[ui];
   const failed = ui === "failed";
 
   function retryItem() {
@@ -238,10 +272,10 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
                     </IconButton>
                   ) : null}
                   <IconButton
-                    title="Open on YouTube"
+                    title={item.kind === "article" ? "Open article" : "Open on YouTube"}
                     onClick={() => window.open(item.url, "_blank", "noopener")}
                   >
-                    <YoutubeIcon />
+                    {item.kind === "article" ? <LinkOutIcon /> : <YoutubeIcon />}
                   </IconButton>
                   <IconButton
                     title="Delete"
