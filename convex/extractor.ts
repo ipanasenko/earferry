@@ -30,6 +30,7 @@ export type ProbeMetadata = {
   duration?: number;
   thumbnail?: string;
   live_status?: string;
+  webpage_url?: string;
   timestamp?: number;
   release_timestamp?: number;
   upload_date?: string;
@@ -214,6 +215,9 @@ export const run = internalAction({
         durationSeconds: Number.isFinite(duration) && duration > 0 ? duration : undefined,
         publishedAt: publishedDate(metadata) ?? undefined,
         artworkUrl: metadata.thumbnail ?? undefined,
+        // Share links (share.google, redirect shorteners) resolve during the
+        // probe; the canonical URL is what the feed should show and open.
+        canonicalUrl: metadata.webpage_url ?? undefined,
       });
 
       if (isWaitingLiveStatus(metadata.live_status, metadata.release_timestamp)) {

@@ -459,13 +459,27 @@ export const recordProbe = internalMutation({
     durationSeconds: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
     artworkUrl: v.optional(v.string()),
+    // The post-redirect canonical page URL from the article probe. Share
+    // links (share.google and other shorteners) resolve during the probe,
+    // and the feed should show and open the real site, not the redirector.
+    canonicalUrl: v.optional(v.string()),
   },
-  handler: async (ctx, { itemId, ...metadata }) => {
+  handler: async (ctx, { itemId, canonicalUrl, ...metadata }) => {
     const item = await ctx.db.get(itemId);
     if (!item) return;
-    await ctx.db.patch(itemId, metadata);
+    const url =
+      item.kind === "article" && canonicalUrl && isHttpUrl(canonicalUrl) ? canonicalUrl : undefined;
+    await ctx.db.patch(itemId, url ? { ...metadata, url } : metadata);
   },
 });
+
+function isHttpUrl(value: string): boolean {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
 
 export const markReady = internalMutation({
   args: {
