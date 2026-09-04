@@ -120,6 +120,39 @@ describe("article probe metadata", () => {
     expect(item?.artworkUrl).toBe("https://example.com/og-image.jpg");
     expect(item?.kind).toBe("article");
   });
+
+  test("recordProbe replaces a share-link url with the resolved canonical url", async () => {
+    const t = testConvex();
+    const shareUrl = "https://share.google/abc123";
+    const itemId = await insertArticle(t, {
+      url: shareUrl,
+      videoId: `a:${sha256Hex(shareUrl).slice(0, 32)}`,
+    });
+
+    await t.mutation(internal.items.recordProbe, {
+      itemId,
+      title: "Why ferries",
+      canonicalUrl: "https://example.com/why-ferries",
+    });
+
+    const item = await t.run(async (ctx) => ctx.db.get(itemId));
+    expect(item?.url).toBe("https://example.com/why-ferries");
+    // The dedupe key stays what it was minted from; only the display URL moves.
+    expect(item?.videoId).toBe(`a:${sha256Hex(shareUrl).slice(0, 32)}`);
+  });
+
+  test("recordProbe ignores a non-http canonical url", async () => {
+    const t = testConvex();
+    const itemId = await insertArticle(t);
+
+    await t.mutation(internal.items.recordProbe, {
+      itemId,
+      canonicalUrl: "javascript:alert(1)",
+    });
+
+    const item = await t.run(async (ctx) => ctx.db.get(itemId));
+    expect(item?.url).toBe(ARTICLE_URL);
+  });
 });
 
 describe("article failure wording", () => {
