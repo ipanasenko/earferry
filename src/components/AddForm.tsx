@@ -43,6 +43,7 @@ export function AddForm() {
       >
         <input
           type="url"
+          autoFocus
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
