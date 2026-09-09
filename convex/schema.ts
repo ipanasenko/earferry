@@ -61,6 +61,10 @@ export default defineSchema({
     channel: v.optional(v.string()),
     description: v.optional(v.string()),
     durationSeconds: v.optional(v.number()),
+    // Section chapters for narrated articles, measured by the extractor from
+    // the article's subtitles. Videos get their chapters parsed out of the
+    // description at feed-render time instead.
+    chapters: v.optional(v.array(v.object({ title: v.string(), startSeconds: v.number() }))),
     publishedAt: v.optional(v.number()),
     addedAt: v.number(),
     // When the audio became available for podcast clients. Optional for items

@@ -76,6 +76,7 @@ http.route({
       itemId?: string;
       sizeBytes?: number;
       durationSeconds?: number;
+      chapters?: Array<{ title?: unknown; startSeconds?: unknown }>;
       title?: string;
       channel?: string;
       description?: string;
@@ -92,6 +93,26 @@ http.route({
 
     // Signed once here (crypto.subtle is available in HTTP actions) and stored
     // on the item, so queries can return it without signing.
+    // Article section chapters, measured by the extractor. Re-validated here
+    // because the Worker payload crosses a trust boundary; a malformed list is
+    // dropped whole rather than stored partially.
+    const chapters = Array.isArray(body.chapters)
+      ? body.chapters.slice(0, 100).map((chapter) => ({
+          title: String(chapter?.title ?? "")
+            .trim()
+            .slice(0, 200),
+          startSeconds: Number(chapter?.startSeconds),
+        }))
+      : [];
+    const validChapters =
+      chapters.length >= 2 &&
+      chapters.every(
+        (chapter) =>
+          chapter.title && Number.isFinite(chapter.startSeconds) && chapter.startSeconds >= 0,
+      )
+        ? chapters
+        : undefined;
+
     const mediaUrl = await signedMediaUrl(found.feed.feedToken, itemId);
     const artworkUrl = body.artwork
       ? await signedArtworkUrl(found.feed.feedToken, itemId)
@@ -102,6 +123,7 @@ http.route({
       r2Key: `items/${itemId}.mp3`,
       sizeBytes: Number(body.sizeBytes) > 0 ? Number(body.sizeBytes) : undefined,
       durationSeconds: Number(body.durationSeconds) > 0 ? Number(body.durationSeconds) : undefined,
+      chapters: validChapters,
       title: typeof body.title === "string" ? body.title : undefined,
       channel: typeof body.channel === "string" ? body.channel : undefined,
       description: typeof body.description === "string" ? body.description : undefined,

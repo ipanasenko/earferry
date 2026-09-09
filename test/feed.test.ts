@@ -96,3 +96,45 @@ describe("podcast feed", () => {
     expect(feed).toContain("/media/secret-token/item-id.mp3");
   });
 });
+
+describe("article chapters", () => {
+  const articleItem = (chapters?: Array<{ title: string; startSeconds: number }>) =>
+    ({
+      _id: "article-item-id",
+      _creationTime: Date.parse("2026-09-01T10:00:00Z"),
+      url: "https://blog.example/posts/ears",
+      videoId: "a:hash",
+      kind: "article",
+      title: "How Ferries Carry Ears",
+      addedAt: Date.parse("2026-09-01T10:00:00Z"),
+      position: 1,
+      status: "ready",
+      mediaUrl: "https://media.example/article.mp3",
+      chapters,
+    }) as unknown as Doc<"items">;
+
+  test("renders stored section chapters as PSC chapters", async () => {
+    const feed = await buildFeed(
+      [
+        articleItem([
+          { title: "How Ferries Carry Ears", startSeconds: 0 },
+          { title: "Second Thoughts <& more>", startSeconds: 754.2 },
+          { title: "Closing", startSeconds: 3725 },
+        ]),
+      ],
+      "https://earferry.example",
+      privateFeed,
+    );
+
+    expect(feed).toContain('<psc:chapter start="0:00" title="How Ferries Carry Ears" />');
+    expect(feed).toContain(
+      '<psc:chapter start="12:34" title="Second Thoughts &lt;&amp; more&gt;" />',
+    );
+    expect(feed).toContain('<psc:chapter start="1:02:05" title="Closing" />');
+  });
+
+  test("emits no chapters for an article without sections", async () => {
+    const feed = await buildFeed([articleItem()], "https://earferry.example", privateFeed);
+    expect(feed).not.toContain("psc:chapter ");
+  });
+});

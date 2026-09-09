@@ -110,8 +110,26 @@ export function withIntroChapter(
   return [{ start: zero, title: "Intro" }, ...chapters];
 }
 
-function chapterXml(description: string | undefined): string {
-  const chapters = withIntroChapter(parseYouTubeChapters(description));
+export function formatChapterStart(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(seconds % 60)}`
+    : `${minutes}:${pad(seconds % 60)}`;
+}
+
+function chapterXml(item: Pick<Doc<"items">, "description" | "chapters">): string {
+  // An article stores the chapters the extractor measured from its section
+  // subtitles; they always start with the title at 0:00, so no synthesized
+  // intro is needed. A video's chapters are parsed from its description.
+  const stored = (item.chapters ?? []).map(({ title, startSeconds }) => ({
+    start: formatChapterStart(startSeconds),
+    title,
+  }));
+  const chapters =
+    stored.length > 0 ? stored : withIntroChapter(parseYouTubeChapters(item.description));
   if (chapters.length === 0) return "";
   return `
       <psc:chapters version="1.2">${chapters
@@ -169,7 +187,7 @@ export async function buildFeed(
       <guid isPermaLink="false">${xml(item._id)}</guid>
       <pubDate>${new Date(item.readyAt ?? item.addedAt).toUTCString()}</pubDate>
       <description>${xml(description)}</description>
-      ${chapterXml(item.description)}
+      ${chapterXml(item)}
       ${item.artworkUrl ? `<itunes:image href="${xml(item.artworkUrl)}" />` : ""}
       ${
         Number(item.durationSeconds) > 0
