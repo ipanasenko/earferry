@@ -187,6 +187,7 @@ export async function buildFeed(
       <guid isPermaLink="false">${xml(item._id)}</guid>
       <pubDate>${new Date(item.readyAt ?? item.addedAt).toUTCString()}</pubDate>
       <description>${xml(description)}</description>
+      ${item.channel ? `<itunes:author>${xml(item.channel)}</itunes:author>` : ""}
       ${chapterXml(item)}
       ${item.artworkUrl ? `<itunes:image href="${xml(item.artworkUrl)}" />` : ""}
       ${

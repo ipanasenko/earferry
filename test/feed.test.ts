@@ -57,6 +57,25 @@ describe("podcast feed", () => {
     expect(feed).toContain("<itunes:author>EarFerry · Captained by Ava &amp; Sam</itunes:author>");
   });
 
+  test("an episode's author is its channel or site name", async () => {
+    const item = {
+      _id: "item-id",
+      _creationTime: 0,
+      url: "https://www.youtube.com/watch?v=abcdefghijk",
+      videoId: "abcdefghijk",
+      title: "Saved video",
+      channel: "Kult: Podcast <& Friends>",
+      addedAt: 0,
+      position: 1,
+      status: "ready",
+      mediaUrl: "https://media.example/item.mp3",
+    } as unknown as Doc<"items">;
+
+    const feed = await buildFeed([item], "https://earferry.example", privateFeed, "Ava & Sam");
+
+    expect(feed).toContain("<itunes:author>Kult: Podcast &lt;&amp; Friends&gt;</itunes:author>");
+  });
+
   test("a public feed publishes its slug and its own branding", async () => {
     const feed = await buildFeed([], "https://earferry.example", {
       feedToken: "secret-token",
