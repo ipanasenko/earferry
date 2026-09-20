@@ -21,6 +21,7 @@ import {
 //                          (and items/{itemId}.mp4 when video is requested),
 //                          then calls back our /internal/* HTTP actions
 //   DELETE /jobs/{itemId}  -> cancel + delete R2 objects
+//   DELETE /jobs/{itemId}/video -> delete only the MP4 (shorter retention)
 //   GET /health            -> container health (proxied)
 
 export type ProbeMetadata = {
@@ -120,10 +121,10 @@ export function extractionSource(item: { kind?: string }): ExtractionSource {
   return item.kind === "article" ? "article" : "youtube";
 }
 
-// The video flag is stored on any item the user ticked it for, but only a
-// YouTube extraction can honour it.
-export function wantsVideo(item: { kind?: string; video?: boolean }): boolean {
-  return item.video === true && extractionSource(item) === "youtube";
+// Every YouTube item keeps its video for a while; an article is narrated, so
+// there is nothing to keep.
+export function wantsVideo(item: { kind?: string }): boolean {
+  return extractionSource(item) === "youtube";
 }
 
 export async function probeVideo(
@@ -183,6 +184,17 @@ export async function cancelJob(baseUrl: string, secret: string, itemId: string)
   });
   if (response.ok || response.status === 404) return;
   throw new Error(`Extractor cancellation failed (${response.status})`);
+}
+
+export async function deleteVideo(baseUrl: string, secret: string, itemId: string): Promise<void> {
+  const response = await extractorFetch(
+    baseUrl,
+    secret,
+    `/jobs/${encodeURIComponent(itemId)}/video`,
+    { method: "DELETE" },
+  );
+  if (response.ok || response.status === 404) return;
+  throw new Error(`Extractor video deletion failed (${response.status})`);
 }
 
 export async function health(baseUrl: string, secret: string): Promise<ExtractorHealth> {
@@ -376,15 +388,45 @@ export const expire = internalAction({
   },
 });
 
+// Drops only the MP4; the episode stays published as audio until `expire`.
+export const expireVideo = internalAction({
+  args: { itemId: v.id("items") },
+  handler: async (ctx, args) => {
+    const item = await ctx.runQuery(internal.items.get, { itemId: args.itemId });
+    if (!item || !item.videoExpiresAt || item.videoExpiresAt > Date.now()) return;
+
+    const config = extractorConfig();
+    if (!config) {
+      await ctx.scheduler.runAfter(5 * 60_000, internal.extractor.expireVideo, args);
+      return;
+    }
+    try {
+      await deleteVideo(config.baseUrl, config.secret, args.itemId);
+    } catch {
+      await ctx.scheduler.runAfter(5 * 60_000, internal.extractor.expireVideo, args);
+      return;
+    }
+    await ctx.runMutation(internal.items.clearExpiredVideo, {
+      itemId: args.itemId,
+      observedVideoExpiresAt: item.videoExpiresAt,
+    });
+  },
+});
+
 export const cleanupExpired = internalAction({
   args: {},
   handler: async (ctx) => {
-    const items = await ctx.runQuery(internal.items.expiredReadyItems, { now: Date.now() });
-    await Promise.all(
-      items.map((item: Doc<"items">) =>
+    const now = Date.now();
+    const items = await ctx.runQuery(internal.items.expiredReadyItems, { now });
+    const videos = await ctx.runQuery(internal.items.expiredVideos, { now });
+    await Promise.all([
+      ...items.map((item: Doc<"items">) =>
         ctx.scheduler.runAfter(0, internal.extractor.expire, { itemId: item._id }),
       ),
-    );
+      ...videos.map((item: Doc<"items">) =>
+        ctx.scheduler.runAfter(0, internal.extractor.expireVideo, { itemId: item._id }),
+      ),
+    ]);
   },
 });
 

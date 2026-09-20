@@ -32,9 +32,7 @@ export interface QueueItemDoc {
   artworkUrl?: string;
   /** Signed Worker media URL, present once the item is ready. */
   mediaUrl?: string;
-  /** The user asked to keep the YouTube video as well. */
-  video?: boolean;
-  /** Signed Worker MP4 URL, present once a kept video is ready. */
+  /** Signed Worker MP4 URL, present while a kept video is stored. */
   videoUrl?: string;
 }
 
@@ -53,7 +51,7 @@ type PublicMutation<Args extends DefaultFunctionArgs, Ret> = FunctionReference<
 interface EarferryApi {
   items: {
     list: PublicQuery<Record<string, never>, QueueItemDoc[]>;
-    add: PublicMutation<{ url: string; video?: boolean }, string>;
+    add: PublicMutation<{ url: string }, string>;
     remove: PublicMutation<{ id: string }, null>;
     retry: PublicMutation<{ id: string }, null>;
   };

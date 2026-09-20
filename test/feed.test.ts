@@ -114,7 +114,6 @@ describe("kept video", () => {
   test("publishes the MP4 as the enclosure and the MP3 as an alternate", async () => {
     const item = {
       ...baseItem,
-      video: true,
       videoR2Key: "items/video-item-id.mp4",
       videoSizeBytes: 50_000,
       videoUrl: "https://media.example/video-item-id.mp4?s=sig",
@@ -133,6 +132,24 @@ describe("kept video", () => {
       '<podcast:source uri="https://media.example/video-item-id.mp3?s=sig" />',
     );
     expect(feed).not.toContain('type="audio/mpeg" />');
+  });
+
+  test("a video past its deadline falls back to the audio enclosure", async () => {
+    const item = {
+      ...baseItem,
+      videoR2Key: "items/video-item-id.mp4",
+      videoSizeBytes: 50_000,
+      videoUrl: "https://media.example/video-item-id.mp4?s=sig",
+      videoExpiresAt: Date.now() - 1,
+    } as unknown as Doc<"items">;
+
+    const feed = await buildFeed([item], "https://earferry.example", privateFeed);
+
+    expect(feed).not.toContain('type="video/mp4"');
+    expect(feed).not.toContain("alternateEnclosure");
+    expect(feed).toContain(
+      '<enclosure url="https://media.example/video-item-id.mp3?s=sig" length="1000" type="audio/mpeg" />',
+    );
   });
 
   test("an audio-only item keeps the plain audio enclosure", async () => {

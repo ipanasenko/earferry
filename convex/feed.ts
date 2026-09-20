@@ -196,10 +196,13 @@ export async function buildFeed(
     items.map((item) => item.mediaUrl ?? signedMediaUrl(feed.feedToken, item._id)),
   );
   // Same for the kept video: videoR2Key says an MP4 exists, and the URL is
-  // re-signed only when a feed token rotation has dropped the stored one.
+  // re-signed only when a feed token rotation has dropped the stored one. A
+  // video past its deadline is left out even before the cleanup removes it,
+  // so the feed never points at an object that is about to vanish.
+  const now = Date.now();
   const videoUrls = await Promise.all(
     items.map((item) =>
-      item.videoR2Key || item.videoUrl
+      (item.videoR2Key || item.videoUrl) && !(item.videoExpiresAt && item.videoExpiresAt <= now)
         ? (item.videoUrl ?? signedVideoUrl(feed.feedToken, item._id))
         : undefined,
     ),

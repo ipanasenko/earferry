@@ -91,11 +91,14 @@ Convex -> Worker:
   disposable container job with callbackBase pointing at the Worker and
   streams the result into R2 at
   `items/{itemId}.mp3` (artwork at `items/{itemId}.jpg`). With `video: true`
-  the container also downloads a 720p H.264 MP4 and stores it at
-  `items/{itemId}.mp4` before the audio upload completes; the video is
-  best-effort, so a failed MP4 still publishes the audio episode.
+  (every YouTube item) the container also downloads a 720p H.264 MP4 and
+  stores it at `items/{itemId}.mp4` before the audio upload completes; the
+  video is best-effort, so a failed MP4 still publishes the audio episode.
 - `GET /jobs/{itemId}` -> durable execution state, used only for reconciliation.
 - `DELETE /jobs/{itemId}` -> cancel + delete R2 objects.
+- `DELETE /jobs/{itemId}/video` -> delete only the MP4. Convex schedules this
+  7 days after the item became ready (audio stays for 30); the episode then
+  falls back to its audio enclosure.
 - `GET /health` -> container health (proxied).
 
 Worker -> Convex (HTTP actions on CONVEX_SITE_URL, same Bearer secret):

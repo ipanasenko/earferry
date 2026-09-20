@@ -14,7 +14,6 @@ import {
   Tick01Icon as HugeTick,
   HandHeartIcon as HugeHandHeart,
   LinkSquare02Icon as HugeLinkSquare,
-  Video01Icon as HugeVideo,
 } from "@hugeicons/core-free-icons";
 
 export function LogoMark({ size = 38 }: { size?: number }) {
@@ -301,10 +300,6 @@ export function ConfirmIcon({ stroke = "var(--color-background)" }: IconProps) {
 
 export function CancelIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
   return <UiIcon icon={HugeCancel} stroke={stroke} />;
-}
-
-export function VideoIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
-  return <UiIcon icon={HugeVideo} stroke={stroke} />;
 }
 
 export function FeedIcon({ stroke = "var(--color-text-muted)" }: IconProps) {
