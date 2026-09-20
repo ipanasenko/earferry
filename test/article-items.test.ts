@@ -244,10 +244,10 @@ describe("article heartbeat wording", () => {
     expect(response.status).toBe(200);
 
     const item = await t.run(async (ctx) => ctx.db.get(itemId));
-    expect(item?.phase).toBe("Downloading and converting audio");
+    expect(item?.phase).toBe("Downloading from YouTube");
 
     for (const [phase, label, status] of [
-      ["downloading-video", "Downloading video", "extracting"],
+      ["converting", "Converting to audio and video", "extracting"],
       ["uploading-video", "Uploading video", "uploading"],
       ["uploading", "Uploading MP3", "uploading"],
     ]) {

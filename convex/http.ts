@@ -219,13 +219,13 @@ http.route({
 
     // The item is already loaded above, so its kind picks the wording for
     // free: article audio is narrated, not downloaded. Articles report an
-    // extra "synthesizing" phase between fetching the page and uploading; a
-    // YouTube video reports its MP4 download and upload as their own phases,
-    // so the row never claims audio work while the video is what is running.
+    // extra "synthesizing" phase between fetching the page and uploading. A
+    // YouTube item downloads the video once, then one ffmpeg pass writes the
+    // MP4 and the MP3 ("converting"); the audio-only fallback download reports
+    // "downloading" as well.
     const phaseLabels: Record<string, string> = {
-      downloading:
-        item.kind === "article" ? "Fetching the article" : "Downloading and converting audio",
-      "downloading-video": "Downloading video",
+      downloading: item.kind === "article" ? "Fetching the article" : "Downloading from YouTube",
+      converting: "Converting to audio and video",
       synthesizing: "Turning the article into audio",
       "uploading-video": "Uploading video",
       uploading: "Uploading MP3",
