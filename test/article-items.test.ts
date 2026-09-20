@@ -245,6 +245,22 @@ describe("article heartbeat wording", () => {
 
     const item = await t.run(async (ctx) => ctx.db.get(itemId));
     expect(item?.phase).toBe("Downloading and converting audio");
+
+    for (const [phase, label, status] of [
+      ["downloading-video", "Downloading video", "extracting"],
+      ["uploading-video", "Uploading video", "uploading"],
+      ["uploading", "Uploading MP3", "uploading"],
+    ]) {
+      const next = await t.fetch("/internal/extract-heartbeat", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret", "content-type": "application/json" },
+        body: JSON.stringify({ itemId, phase, attempt: "attempt-1" }),
+      });
+      expect(next.status).toBe(200);
+      const updated = await t.run(async (ctx) => ctx.db.get(itemId));
+      expect(updated?.phase).toBe(label);
+      expect(updated?.status).toBe(status);
+    }
   });
 });
 
