@@ -214,24 +214,24 @@ http.route({
 
     // The item is already loaded above, so its kind picks the wording for
     // free: article audio is narrated, not downloaded. Articles report an
-    // extra "synthesizing" phase between fetching the page and uploading.
-    const phase =
-      body.phase === "downloading"
-        ? item.kind === "article"
-          ? "Fetching the article"
-          : "Downloading and converting audio"
-        : body.phase === "synthesizing"
-          ? "Turning the article into audio"
-          : body.phase === "uploading"
-            ? "Uploading MP3"
-            : body.phase === "finalizing"
-              ? "Finalizing MP3"
-              : undefined;
+    // extra "synthesizing" phase between fetching the page and uploading; a
+    // YouTube video reports its MP4 download and upload as their own phases,
+    // so the row never claims audio work while the video is what is running.
+    const phaseLabels: Record<string, string> = {
+      downloading:
+        item.kind === "article" ? "Fetching the article" : "Downloading and converting audio",
+      "downloading-video": "Downloading video",
+      synthesizing: "Turning the article into audio",
+      "uploading-video": "Uploading video",
+      uploading: "Uploading MP3",
+      finalizing: "Finalizing MP3",
+    };
+    const phase = typeof body.phase === "string" ? phaseLabels[body.phase] : undefined;
+    const uploadPhases = new Set(["uploading", "uploading-video", "finalizing"]);
     await ctx.runMutation(internal.items.recordHeartbeat, {
       itemId,
       attempt: typeof body.attempt === "string" ? body.attempt : undefined,
-      status:
-        body.phase === "uploading" || body.phase === "finalizing" ? "uploading" : "extracting",
+      status: uploadPhases.has(String(body.phase)) ? "uploading" : "extracting",
       phase,
     });
     return json({ alive: true });
