@@ -158,6 +158,9 @@ export const requeueMissingAudio = internalMutation({
       r2Key: undefined,
       sizeBytes: undefined,
       mediaUrl: undefined,
+      videoR2Key: undefined,
+      videoSizeBytes: undefined,
+      videoUrl: undefined,
       expiresAt: undefined,
     });
   },
@@ -190,9 +193,12 @@ export const list = query({
 });
 
 export const add = mutation({
-  args: { url: v.string() },
+  args: { url: v.string(), video: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const { kind, canonicalUrl: url, dedupeKey: videoId } = classifyUrl(args.url);
+    // Only a YouTube video can keep its video; an article is narrated audio.
+    // Left undefined rather than false so audio-only rows stay unchanged.
+    const video = kind !== "article" && args.video === true ? true : undefined;
     const user = await getOrCreateUser(ctx);
     const feed = await getOrCreateUserFeed(ctx, user);
     const now = Date.now();
@@ -209,18 +215,25 @@ export const add = mutation({
       }
       if (existing.status === "failed" || isExpiredReady(existing, now)) {
         // A re-added failed item gets a fresh attempt, not just a new spot.
+        // The video choice follows the new request since nothing is stored.
         await enqueueItem(ctx, existing._id, {
           position,
           addedAt: now,
           phase: undefined,
           error: undefined,
           attempts: 0,
+          video,
           r2Key: undefined,
           sizeBytes: undefined,
           mediaUrl: undefined,
+          videoR2Key: undefined,
+          videoSizeBytes: undefined,
+          videoUrl: undefined,
           expiresAt: undefined,
         });
       } else {
+        // A ready or in-flight item is not re-extracted, so a new video choice
+        // cannot take effect here; the stored media stays as it is.
         await ctx.db.patch(existing._id, {
           position,
           addedAt: now,
@@ -241,6 +254,7 @@ export const add = mutation({
       url,
       videoId,
       kind: kind === "article" ? "article" : undefined,
+      video,
       addedAt: now,
       position: await topPosition(ctx, feed._id),
       status: "queued",
@@ -487,6 +501,10 @@ export const markReady = internalMutation({
     r2Key: v.string(),
     sizeBytes: v.optional(v.number()),
     mediaUrl: v.optional(v.string()),
+    // Present only when the Worker stored an MP4 for this attempt.
+    videoR2Key: v.optional(v.string()),
+    videoSizeBytes: v.optional(v.number()),
+    videoUrl: v.optional(v.string()),
     title: v.optional(v.string()),
     channel: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -523,6 +541,11 @@ export const markReady = internalMutation({
       r2Key: args.r2Key,
       sizeBytes: args.sizeBytes,
       mediaUrl: args.mediaUrl,
+      // Written even when absent: a re-extract that produced no MP4 must not
+      // keep publishing the previous attempt's video enclosure.
+      videoR2Key: args.videoR2Key,
+      videoSizeBytes: args.videoSizeBytes,
+      videoUrl: args.videoUrl,
       // Keep probe metadata unless the Worker sends fresher values.
       title: args.title ?? item.title,
       channel: args.channel ?? item.channel,

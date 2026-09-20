@@ -6,7 +6,10 @@ import type { Doc } from "./_generated/dataModel";
 // ---- Worker media URLs -----------------------------------------------------
 // Media is served by the earferry-extractor Worker:
 //   GET {MEDIA_BASE_URL}/media/{feedToken}/{itemId}.mp3?s={sig}
+//   GET {MEDIA_BASE_URL}/media/{feedToken}/{itemId}.jpg?s={sig}  (artwork)
+//   GET {MEDIA_BASE_URL}/media/{feedToken}/{itemId}.mp4?s={sig}  (kept video)
 //   sig = hex(HMAC-SHA256(INTERNAL_SECRET, `${feedToken}/${itemId}`))
+// One signature covers every extension, so the three URLs differ only in suffix.
 // These helpers run in HTTP actions (crypto.subtle is available there).
 
 export function mediaBaseUrl(): string {
@@ -40,6 +43,31 @@ export async function signedMediaUrl(feedToken: string, itemId: string): Promise
 export async function signedArtworkUrl(feedToken: string, itemId: string): Promise<string> {
   const sig = await signMediaPath(feedToken, itemId);
   return `${mediaBaseUrl()}/media/${encodeURIComponent(feedToken)}/${encodeURIComponent(itemId)}.jpg?s=${sig}`;
+}
+
+export async function signedVideoUrl(feedToken: string, itemId: string): Promise<string> {
+  const sig = await signMediaPath(feedToken, itemId);
+  return `${mediaBaseUrl()}/media/${encodeURIComponent(feedToken)}/${encodeURIComponent(itemId)}.mp4?s=${sig}`;
+}
+
+// Podcast apps play exactly one enclosure per item, and Pocket Casts treats a
+// video/mp4 enclosure as a video episode. When an MP4 was kept it takes the
+// enclosure slot and the MP3 moves to a Podcasting 2.0 alternate enclosure:
+// apps that already read renditions can offer the audio, and Pocket Casts will
+// once its alternate-enclosure support lands (Automattic/pocket-casts-android
+// PR 5832 is still a draft). An audio-only item keeps the plain enclosure.
+function enclosureXml(
+  item: Pick<Doc<"items">, "sizeBytes" | "videoSizeBytes">,
+  media: string,
+  video: string | undefined,
+): string {
+  if (!video) {
+    return `<enclosure url="${xml(media)}" length="${Number(item.sizeBytes) || 0}" type="audio/mpeg" />`;
+  }
+  return `<enclosure url="${xml(video)}" length="${Number(item.videoSizeBytes) || 0}" type="video/mp4" />
+      <podcast:alternateEnclosure type="audio/mpeg" length="${Number(item.sizeBytes) || 0}" default="false" title="Audio">
+        <podcast:source uri="${xml(media)}" />
+      </podcast:alternateEnclosure>`;
 }
 
 function xml(value: unknown = ""): string {
@@ -167,10 +195,20 @@ export async function buildFeed(
   const mediaUrls = await Promise.all(
     items.map((item) => item.mediaUrl ?? signedMediaUrl(feed.feedToken, item._id)),
   );
+  // Same for the kept video: videoR2Key says an MP4 exists, and the URL is
+  // re-signed only when a feed token rotation has dropped the stored one.
+  const videoUrls = await Promise.all(
+    items.map((item) =>
+      item.videoR2Key || item.videoUrl
+        ? (item.videoUrl ?? signedVideoUrl(feed.feedToken, item._id))
+        : undefined,
+    ),
+  );
 
   const entries = items
     .map((item, index) => {
       const media = mediaUrls[index];
+      const video = videoUrls[index];
       const article = item.kind === "article";
       const fallbackTitle = article ? "Article audio" : "YouTube audio";
       const description = [
@@ -194,13 +232,13 @@ export async function buildFeed(
           ? `<itunes:duration>${Math.round(Number(item.durationSeconds))}</itunes:duration>`
           : ""
       }
-      <enclosure url="${xml(media)}" length="${Number(item.sizeBytes) || 0}" type="audio/mpeg" />
+      ${enclosureXml(item, media, video)}
     </item>`;
     })
     .join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:psc="http://podlove.org/simple-chapters">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:psc="http://podlove.org/simple-chapters" xmlns:podcast="https://podcastindex.org/namespace/1.0">
   <channel>
     <title>${xml(feedName)}</title>
     <link>${xml(base)}</link>

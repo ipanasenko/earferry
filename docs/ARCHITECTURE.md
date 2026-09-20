@@ -84,19 +84,25 @@ All Worker endpoints (except /media) require `Authorization: Bearer INTERNAL_SEC
 
 Convex -> Worker:
 - `POST /probe` `{ url }` -> container probe result (proxied).
-- `POST /extract` `{ itemId, url, attemptToken, queueOrder }` -> `202` when
+- `POST /extract` `{ itemId, url, attemptToken, queueOrder, source, video? }`
+  -> `202` when
   durably created or `200` when the same attempt already exists. The Durable
   Object owns FIFO ordering, leases, retries, and restart recovery; it starts a
   disposable container job with callbackBase pointing at the Worker and
   streams the result into R2 at
-  `items/{itemId}.mp3` (artwork at `items/{itemId}.jpg`).
+  `items/{itemId}.mp3` (artwork at `items/{itemId}.jpg`). With `video: true`
+  the container also downloads a 720p H.264 MP4 and stores it at
+  `items/{itemId}.mp4` before the audio upload completes; the video is
+  best-effort, so a failed MP4 still publishes the audio episode.
 - `GET /jobs/{itemId}` -> durable execution state, used only for reconciliation.
 - `DELETE /jobs/{itemId}` -> cancel + delete R2 objects.
 - `GET /health` -> container health (proxied).
 
 Worker -> Convex (HTTP actions on CONVEX_SITE_URL, same Bearer secret):
 - `POST /internal/extract-complete` `{ itemId, sizeBytes, artwork,
-  durationSeconds?, title?, channel?, description?, publishedAt? }`
+  videoSizeBytes?, durationSeconds?, chapters?, title?, channel?,
+  description?, publishedAt?, attempt? }`. `videoSizeBytes` is present only
+  when `items/{itemId}.mp4` was stored.
 - `POST /internal/extract-failed` `{ itemId, error, detail?, retryable }`
 - `POST /internal/extract-heartbeat` `{ itemId, phase, elapsedSeconds? }`
 
@@ -113,6 +119,11 @@ Media (public, podcast clients):
   itemId))`. Convex builds these URLs in the RSS feed (env MEDIA_BASE_URL).
 - `GET /media/{feedToken}/{itemId}.jpg?s={sig}` serves generated square
   episode artwork with the same item signature.
+- `GET /media/{feedToken}/{itemId}.mp4?s={sig}` serves the kept video with the
+  same item signature. The feed then publishes the MP4 as the `video/mp4`
+  enclosure (Pocket Casts plays it as a video episode) and moves the MP3 into a
+  `podcast:alternateEnclosure`, because podcast apps play one enclosure per
+  item.
 
 Convex env vars: `EXTRACTOR_URL`, `INTERNAL_SECRET`, `MEDIA_BASE_URL`,
 optional `FEED_BASE_URL`.

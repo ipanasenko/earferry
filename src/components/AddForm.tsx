@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "../lib/api";
 import { track } from "../lib/analytics";
 import { errorMessage } from "../lib/errors";
+import { VideoIcon } from "./icons";
 
 // Best-effort video id for analytics; the backend does the real parsing.
 function videoIdForAnalytics(url: string): string | undefined {
@@ -13,6 +14,9 @@ function videoIdForAnalytics(url: string): string | undefined {
 export function AddForm() {
   const add = useMutation(api.items.add);
   const [url, setUrl] = useState("");
+  // Sticky across adds: someone who wants video usually wants it for the
+  // next link too, and the backend ignores it for articles anyway.
+  const [video, setVideo] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,8 +27,8 @@ export function AddForm() {
     setPending(true);
     setError(null);
     try {
-      await add({ url: trimmed });
-      track("item_added", { video_id: videoIdForAnalytics(trimmed) });
+      await add({ url: trimmed, video });
+      track("item_added", { video_id: videoIdForAnalytics(trimmed), video });
       setUrl("");
     } catch (err) {
       const message = errorMessage(err, "That didn't work. Check the link and try again.");
@@ -61,6 +65,24 @@ export function AddForm() {
           {pending ? "Adding…" : "Add"}
         </button>
       </form>
+      <div className="flex flex-col items-center gap-1.5 px-4 text-center">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={video}
+          onClick={() => setVideo((value) => !value)}
+          className={`min-h-9.5 flex items-center gap-2 px-4.5 rounded-pill shadow-pill font-semibold text-sm/4 cursor-pointer transition-colors ${
+            video ? "bg-ink text-background" : "bg-background text-text-muted hover:text-text"
+          }`}
+        >
+          <VideoIcon stroke={video ? "var(--color-background)" : "var(--color-text-muted)"} />
+          Keep the video too
+        </button>
+        <div className="max-w-105 text-xs/3.5 text-text-muted">
+          Adds a 720p MP4 so podcast apps that play video can show it. Videos take far more storage
+          than audio.
+        </div>
+      </div>
       {error ? <div className="text-sm/4 text-danger">{error}</div> : null}
     </div>
   );

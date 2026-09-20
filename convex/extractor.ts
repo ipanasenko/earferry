@@ -16,8 +16,9 @@ import {
 // "Extractor Worker contract"). All endpoints take
 // `authorization: Bearer {INTERNAL_SECRET}`:
 //   POST /probe            { url } -> yt-dlp metadata JSON (proxied)
-//   POST /extract          { itemId, url } -> 202; the Worker drives the
-//                          container, streams into R2 at items/{itemId}.mp3,
+//   POST /extract          { itemId, url, video? } -> 202; the Worker drives
+//                          the container, streams into R2 at items/{itemId}.mp3
+//                          (and items/{itemId}.mp4 when video is requested),
 //                          then calls back our /internal/* HTTP actions
 //   DELETE /jobs/{itemId}  -> cancel + delete R2 objects
 //   GET /health            -> container health (proxied)
@@ -119,6 +120,12 @@ export function extractionSource(item: { kind?: string }): ExtractionSource {
   return item.kind === "article" ? "article" : "youtube";
 }
 
+// The video flag is stored on any item the user ticked it for, but only a
+// YouTube extraction can honour it.
+export function wantsVideo(item: { kind?: string; video?: boolean }): boolean {
+  return item.video === true && extractionSource(item) === "youtube";
+}
+
 export async function probeVideo(
   baseUrl: string,
   secret: string,
@@ -144,6 +151,8 @@ export async function startExtraction(
     attemptToken: string;
     queueOrder: number;
     source: ExtractionSource;
+    // Also keep a 720p MP4; only meaningful for the youtube source.
+    video?: boolean;
   },
 ): Promise<void> {
   const response = await extractorFetch(baseUrl, secret, "/extract", {
@@ -245,6 +254,7 @@ export const run = internalAction({
         attemptToken,
         queueOrder: item.nextAttemptAt ?? item.addedAt,
         source: extractionSource(item),
+        video: wantsVideo(item),
       });
     } catch (error) {
       const detail = String((error as Error)?.message ?? error).slice(0, 500);
@@ -300,6 +310,7 @@ export const recover = internalAction({
           attemptToken: item.attemptToken,
           queueOrder: item.nextAttemptAt ?? item.addedAt,
           source: extractionSource(item),
+          video: wantsVideo(item),
         });
       }
       await ctx.runMutation(internal.items.recordQueuePresence, {

@@ -83,6 +83,16 @@ export default defineSchema({
     sizeBytes: v.optional(v.number()),
     // Signed Worker media URL, stored when the item becomes ready.
     mediaUrl: v.optional(v.string()),
+    // The user asked to keep the YouTube video as well as the audio. Only
+    // videos can carry it; an article is narrated, so it has nothing to keep.
+    video: v.optional(v.boolean()),
+    // Set once the extractor has stored an MP4 next to the MP3. Its presence is
+    // what switches the feed's enclosure from audio to video.
+    videoR2Key: v.optional(v.string()),
+    // Enclosure length for the MP4; podcast apps use it for download progress.
+    videoSizeBytes: v.optional(v.number()),
+    // Signed Worker URL of the MP4, stored when ready like mediaUrl.
+    videoUrl: v.optional(v.string()),
     // Automatic retry attempts for the current extraction (bounded backoff).
     attempts: v.optional(v.number()),
     // When a queued item becomes due. The dispatcher starts the oldest due

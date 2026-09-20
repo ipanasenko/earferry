@@ -196,7 +196,16 @@ export function QueueItem({ item }: { item: QueueItemDoc }) {
             >
               {item.title ?? item.url}
             </div>
-            <div className="text-text-muted truncate text-sm/4">{subtitle(item, ui)}</div>
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Only a stored MP4 earns the badge; a pending request may still
+                  come back audio-only. */}
+              {item.videoUrl ? (
+                <span className="shrink-0 px-2 py-0.5 rounded-pill bg-surface font-semibold text-xs/3.5 text-text-muted">
+                  Video
+                </span>
+              ) : null}
+              <div className="text-text-muted truncate text-sm/4">{subtitle(item, ui)}</div>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-4.5 shrink-0">
