@@ -116,6 +116,74 @@ describe("podcast feed", () => {
   });
 });
 
+describe("kept video", () => {
+  const baseItem = {
+    _id: "video-item-id",
+    _creationTime: 0,
+    url: "https://www.youtube.com/watch?v=abcdefghijk",
+    videoId: "abcdefghijk",
+    title: "Kept video",
+    addedAt: 0,
+    position: 1,
+    status: "ready",
+    sizeBytes: 1_000,
+    mediaUrl: "https://media.example/video-item-id.mp3?s=sig",
+  };
+
+  test("publishes the MP4 as the enclosure and the MP3 as an alternate", async () => {
+    const item = {
+      ...baseItem,
+      videoR2Key: "items/video-item-id.mp4",
+      videoSizeBytes: 50_000,
+      videoUrl: "https://media.example/video-item-id.mp4?s=sig",
+    } as unknown as Doc<"items">;
+
+    const feed = await buildFeed([item], "https://earferry.example", privateFeed);
+
+    expect(feed).toContain('xmlns:podcast="https://podcastindex.org/namespace/1.0"');
+    expect(feed).toContain(
+      '<enclosure url="https://media.example/video-item-id.mp4?s=sig" length="50000" type="video/mp4" />',
+    );
+    expect(feed).toContain(
+      '<podcast:alternateEnclosure type="audio/mpeg" length="1000" default="false" title="Audio">',
+    );
+    expect(feed).toContain(
+      '<podcast:source uri="https://media.example/video-item-id.mp3?s=sig" />',
+    );
+    expect(feed).not.toContain('type="audio/mpeg" />');
+  });
+
+  test("a video past its deadline falls back to the audio enclosure", async () => {
+    const item = {
+      ...baseItem,
+      videoR2Key: "items/video-item-id.mp4",
+      videoSizeBytes: 50_000,
+      videoUrl: "https://media.example/video-item-id.mp4?s=sig",
+      videoExpiresAt: Date.now() - 1,
+    } as unknown as Doc<"items">;
+
+    const feed = await buildFeed([item], "https://earferry.example", privateFeed);
+
+    expect(feed).not.toContain('type="video/mp4"');
+    expect(feed).not.toContain("alternateEnclosure");
+    expect(feed).toContain(
+      '<enclosure url="https://media.example/video-item-id.mp3?s=sig" length="1000" type="audio/mpeg" />',
+    );
+  });
+
+  test("an audio-only item keeps the plain audio enclosure", async () => {
+    const item = baseItem as unknown as Doc<"items">;
+
+    const feed = await buildFeed([item], "https://earferry.example", privateFeed);
+
+    expect(feed).toContain(
+      '<enclosure url="https://media.example/video-item-id.mp3?s=sig" length="1000" type="audio/mpeg" />',
+    );
+    expect(feed).not.toContain("podcast:alternateEnclosure");
+    expect(feed).not.toContain("video/mp4");
+  });
+});
+
 describe("article chapters", () => {
   const articleItem = (chapters?: Array<{ title: string; startSeconds: number }>) =>
     ({

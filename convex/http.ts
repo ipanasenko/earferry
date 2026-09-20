@@ -2,7 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { buildFeed, signedArtworkUrl, signedMediaUrl } from "./feed";
+import { buildFeed, signedArtworkUrl, signedMediaUrl, signedVideoUrl } from "./feed";
 import { feedBaseUrl } from "./feeds";
 import { capture } from "./analytics";
 
@@ -66,7 +66,9 @@ async function readBody<T>(request: Request): Promise<T | null> {
 }
 
 // POST /internal/extract-complete
-// { itemId, sizeBytes, durationSeconds?, title?, channel?, description?, publishedAt? }
+// { itemId, sizeBytes, videoSizeBytes?, durationSeconds?, title?, channel?,
+//   description?, publishedAt?, chapters?, artwork?, attempt? }
+// videoSizeBytes is present only when the Worker stored items/{itemId}.mp4.
 http.route({
   path: "/internal/extract-complete",
   method: "POST",
@@ -75,6 +77,7 @@ http.route({
     const body = await readBody<{
       itemId?: string;
       sizeBytes?: number;
+      videoSizeBytes?: number;
       durationSeconds?: number;
       chapters?: Array<{ title?: unknown; startSeconds?: unknown }>;
       title?: string;
@@ -117,6 +120,12 @@ http.route({
     const artworkUrl = body.artwork
       ? await signedArtworkUrl(found.feed.feedToken, itemId)
       : undefined;
+    // An MP4 is optional per item; its size is the only signal that one exists.
+    const videoSizeBytes =
+      Number(body.videoSizeBytes) > 0 ? Number(body.videoSizeBytes) : undefined;
+    const videoUrl = videoSizeBytes
+      ? await signedVideoUrl(found.feed.feedToken, itemId)
+      : undefined;
     const published = await ctx.runMutation(internal.items.markReady, {
       itemId,
       attempt: typeof body.attempt === "string" ? body.attempt : undefined,
@@ -130,6 +139,9 @@ http.route({
       publishedAt: Number(body.publishedAt) > 0 ? Number(body.publishedAt) : undefined,
       artworkUrl,
       mediaUrl,
+      videoR2Key: videoSizeBytes ? `items/${itemId}.mp4` : undefined,
+      videoSizeBytes,
+      videoUrl,
     });
     // A rejected completion makes the Worker delete the R2 objects the stale
     // attempt just published under this item's key.

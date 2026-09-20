@@ -83,6 +83,17 @@ export default defineSchema({
     sizeBytes: v.optional(v.number()),
     // Signed Worker media URL, stored when the item becomes ready.
     mediaUrl: v.optional(v.string()),
+    // Set once the extractor has stored an MP4 next to the MP3. Its presence is
+    // what switches the feed's enclosure from audio to video. Every YouTube
+    // item gets one; an article is narrated, so it has nothing to keep.
+    videoR2Key: v.optional(v.string()),
+    // Enclosure length for the MP4; podcast apps use it for download progress.
+    videoSizeBytes: v.optional(v.number()),
+    // Signed Worker URL of the MP4, stored when ready like mediaUrl.
+    videoUrl: v.optional(v.string()),
+    // The MP4 is dropped well before the MP3: video costs twenty times the
+    // storage and is watched once, if at all. The episode then stays as audio.
+    videoExpiresAt: v.optional(v.number()),
     // Automatic retry attempts for the current extraction (bounded backoff).
     attempts: v.optional(v.number()),
     // When a queued item becomes due. The dispatcher starts the oldest due
@@ -94,5 +105,6 @@ export default defineSchema({
     .index("by_feed", ["feedId", "position"])
     .index("by_feed_video", ["feedId", "videoId"])
     .index("by_status_expires", ["status", "expiresAt"])
+    .index("by_status_video_expires", ["status", "videoExpiresAt"])
     .index("by_status_next", ["status", "nextAttemptAt"]),
 });

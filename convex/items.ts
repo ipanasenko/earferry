@@ -20,6 +20,9 @@ import { currentUser, getOrCreateUser } from "./users";
 import { feedItems, feedOwner, getOrCreateUserFeed, readyFeedItems, resolveFeed } from "./feeds";
 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+// A kept video is watched soon after it lands or not at all, and it costs
+// about twenty times the storage of the MP3, so it goes long before the audio.
+const VIDEO_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 
 // Keep scheduled/live items at the top of the visible playlist. Within the
 // waiting group and the remaining items, preserve the user's position order.
@@ -34,6 +37,17 @@ function playlistOrder(
 export function renewedAudioExpiry(now = Date.now()): number {
   return now + AUDIO_RETENTION_MS;
 }
+
+export function videoExpiry(now = Date.now()): number {
+  return now + VIDEO_RETENTION_MS;
+}
+
+const clearedVideoFields = {
+  videoR2Key: undefined,
+  videoSizeBytes: undefined,
+  videoUrl: undefined,
+  videoExpiresAt: undefined,
+};
 
 async function topPosition(ctx: MutationCtx, feedId: Id<"feeds">): Promise<number> {
   const top = await ctx.db
@@ -158,6 +172,7 @@ export const requeueMissingAudio = internalMutation({
       r2Key: undefined,
       sizeBytes: undefined,
       mediaUrl: undefined,
+      ...clearedVideoFields,
       expiresAt: undefined,
     });
   },
@@ -218,6 +233,7 @@ export const add = mutation({
           r2Key: undefined,
           sizeBytes: undefined,
           mediaUrl: undefined,
+          ...clearedVideoFields,
           expiresAt: undefined,
         });
       } else {
@@ -487,6 +503,10 @@ export const markReady = internalMutation({
     r2Key: v.string(),
     sizeBytes: v.optional(v.number()),
     mediaUrl: v.optional(v.string()),
+    // Present only when the Worker stored an MP4 for this attempt.
+    videoR2Key: v.optional(v.string()),
+    videoSizeBytes: v.optional(v.number()),
+    videoUrl: v.optional(v.string()),
     title: v.optional(v.string()),
     channel: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -509,6 +529,9 @@ export const markReady = internalMutation({
     const feed = item.feedId ? await ctx.db.get(item.feedId) : null;
     const readyAt = Date.now();
     const expiresAt = feed?.permanent ? undefined : renewedAudioExpiry(readyAt);
+    // The MP4 has its own, shorter deadline on every feed, showroom included:
+    // once it goes the episode simply falls back to its audio enclosure.
+    const videoExpiresAt = args.videoR2Key ? videoExpiry(readyAt) : undefined;
     const position = item.feedId ? await topPosition(ctx, item.feedId) : item.position;
     await ctx.db.patch(args.itemId, {
       status: "ready",
@@ -523,6 +546,12 @@ export const markReady = internalMutation({
       r2Key: args.r2Key,
       sizeBytes: args.sizeBytes,
       mediaUrl: args.mediaUrl,
+      // Written even when absent: a re-extract that produced no MP4 must not
+      // keep publishing the previous attempt's video enclosure.
+      videoR2Key: args.videoR2Key,
+      videoSizeBytes: args.videoSizeBytes,
+      videoUrl: args.videoUrl,
+      videoExpiresAt,
       // Keep probe metadata unless the Worker sends fresher values.
       title: args.title ?? item.title,
       channel: args.channel ?? item.channel,
@@ -536,8 +565,36 @@ export const markReady = internalMutation({
     if (expiresAt !== undefined) {
       await ctx.scheduler.runAt(expiresAt, internal.extractor.expire, { itemId: args.itemId });
     }
+    if (videoExpiresAt !== undefined) {
+      await ctx.scheduler.runAt(videoExpiresAt, internal.extractor.expireVideo, {
+        itemId: args.itemId,
+      });
+    }
     // Submit any product items that became due while this one was running.
     await wakeDispatcher(ctx);
+    return true;
+  },
+});
+
+export const expiredVideos = internalQuery({
+  args: { now: v.number() },
+  handler: (ctx, args) =>
+    ctx.db
+      .query("items")
+      .withIndex("by_status_video_expires", (q) =>
+        q.eq("status", "ready").lte("videoExpiresAt", args.now),
+      )
+      .take(50),
+});
+
+// The MP4 is gone from R2; the episode keeps its audio enclosure. Fenced on
+// the deadline so a re-extract that stored a fresh MP4 in between is kept.
+export const clearExpiredVideo = internalMutation({
+  args: { itemId: v.id("items"), observedVideoExpiresAt: v.number() },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item || item.videoExpiresAt !== args.observedVideoExpiresAt) return false;
+    await ctx.db.patch(args.itemId, clearedVideoFields);
     return true;
   },
 });

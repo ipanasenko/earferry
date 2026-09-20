@@ -32,6 +32,8 @@ export interface QueueItemDoc {
   artworkUrl?: string;
   /** Signed Worker media URL, present once the item is ready. */
   mediaUrl?: string;
+  /** Signed Worker MP4 URL, present while a kept video is stored. */
+  videoUrl?: string;
 }
 
 type PublicQuery<Args extends DefaultFunctionArgs, Ret> = FunctionReference<

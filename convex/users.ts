@@ -77,7 +77,9 @@ export const rotateFeedToken = mutation({
       .query("items")
       .withIndex("by_feed", (q) => q.eq("feedId", feed._id))
       .collect();
-    await Promise.all(items.map((item) => ctx.db.patch(item._id, { mediaUrl: undefined })));
+    await Promise.all(
+      items.map((item) => ctx.db.patch(item._id, { mediaUrl: undefined, videoUrl: undefined })),
+    );
     return { feedUrl: feedUrl({ ...feed, feedToken }) };
   },
 });
