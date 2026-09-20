@@ -47,6 +47,7 @@ const clearedVideoFields = {
   videoSizeBytes: undefined,
   videoUrl: undefined,
   videoExpiresAt: undefined,
+  videoError: undefined,
 };
 
 async function topPosition(ctx: MutationCtx, feedId: Id<"feeds">): Promise<number> {
@@ -507,6 +508,7 @@ export const markReady = internalMutation({
     videoR2Key: v.optional(v.string()),
     videoSizeBytes: v.optional(v.number()),
     videoUrl: v.optional(v.string()),
+    videoError: v.optional(v.string()),
     title: v.optional(v.string()),
     channel: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -552,6 +554,7 @@ export const markReady = internalMutation({
       videoSizeBytes: args.videoSizeBytes,
       videoUrl: args.videoUrl,
       videoExpiresAt,
+      videoError: args.videoR2Key ? undefined : args.videoError,
       // Keep probe metadata unless the Worker sends fresher values.
       title: args.title ?? item.title,
       channel: args.channel ?? item.channel,
