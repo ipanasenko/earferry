@@ -94,6 +94,9 @@ export default defineSchema({
     // The MP4 is dropped well before the MP3: video costs twenty times the
     // storage and is watched once, if at all. The episode then stays as audio.
     videoExpiresAt: v.optional(v.number()),
+    // Why the last extraction produced no MP4, as the container reported it.
+    // Diagnostics only; the episode is fine as audio.
+    videoError: v.optional(v.string()),
     // Automatic retry attempts for the current extraction (bounded backoff).
     attempts: v.optional(v.number()),
     // When a queued item becomes due. The dispatcher starts the oldest due

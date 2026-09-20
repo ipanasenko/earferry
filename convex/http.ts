@@ -78,6 +78,7 @@ http.route({
       itemId?: string;
       sizeBytes?: number;
       videoSizeBytes?: number;
+      videoError?: string;
       durationSeconds?: number;
       chapters?: Array<{ title?: unknown; startSeconds?: unknown }>;
       title?: string;
@@ -142,6 +143,10 @@ http.route({
       videoR2Key: videoSizeBytes ? `items/${itemId}.mp4` : undefined,
       videoSizeBytes,
       videoUrl,
+      videoError:
+        typeof body.videoError === "string" && body.videoError
+          ? body.videoError.slice(0, 500)
+          : undefined,
     });
     // A rejected completion makes the Worker delete the R2 objects the stale
     // attempt just published under this item's key.
