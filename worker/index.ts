@@ -7,7 +7,13 @@ interface Env {
   CONVEX_SITE_URL: string;
 }
 
-const FORWARDED_REQUEST_HEADERS = ["accept", "if-modified-since", "if-none-match", "user-agent"];
+const FORWARDED_REQUEST_HEADERS = [
+  "accept",
+  "sec-fetch-dest",
+  "if-modified-since",
+  "if-none-match",
+  "user-agent",
+];
 
 export function feedRequestHeaders(request: Request): Headers {
   const headers = new Headers();

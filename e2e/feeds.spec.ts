@@ -28,6 +28,26 @@ test("the sample feed is published under its slug", async ({ request, baseURL })
   expect(xml).toContain(`href="${baseURL}/feed/sample"`);
 });
 
+test("the sample feed has a readable browser view and a raw RSS link", async ({ page }) => {
+  const response = await page.goto("/feed/sample");
+
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()["content-type"]).toContain("text/html");
+  expect(response?.headers()["cache-control"]).toBe("no-store");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("EarFerry · Sample Crossings");
+  await expect(page.locator("article")).toHaveCount(10);
+  await expect(page.locator("audio[controls]")).toHaveCount(10);
+  await page.locator("summary").first().click();
+  await expect(page.locator("details").first()).toHaveAttribute("open", "");
+  await expect(page.locator(".description").first()).toBeVisible();
+
+  const rssResponse = page.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get("format") === "rss",
+  );
+  await page.getByRole("link", { name: "View RSS" }).click();
+  expect((await rssResponse).headers()["content-type"]).toContain("application/rss+xml");
+});
+
 test("a private feed resolves by token and is never shared-cached", async ({
   request,
   baseURL,

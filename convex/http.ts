@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { buildFeed, signedArtworkUrl, signedMediaUrl, signedVideoUrl } from "./feed";
 import { feedBaseUrl } from "./feeds";
+import { buildFeedPage, wantsFeedPage } from "./feedPage";
 import { capture } from "./analytics";
 
 const http = httpRouter();
@@ -43,14 +44,23 @@ http.route({
     await capture("feed_fetched", owner?.clerkId ?? `feed:${feed.slug ?? "private"}`);
     // feedBaseUrl, not url.origin: behind the site's /feed/* proxy the request
     // origin is still *.convex.site, which would leak into the self-link.
-    const xml = await buildFeed(items, feedBaseUrl(), feed, owner?.displayName);
-    return new Response(xml, {
+    const browser = wantsFeedPage(request);
+    const body = await (browser ? buildFeedPage : buildFeed)(
+      items,
+      feedBaseUrl(),
+      feed,
+      owner?.displayName,
+    );
+    return new Response(body, {
       headers: {
-        "content-type": "application/rss+xml; charset=utf-8",
+        "content-type": browser ? "text/html; charset=utf-8" : "application/rss+xml; charset=utf-8",
+        vary: "Accept, Sec-Fetch-Dest",
+        "referrer-policy": "no-referrer",
+        "x-robots-tag": "noindex, nofollow, noarchive",
         // A private feed must always answer with the queue as it stands. A
         // public feed is a fixed showroom shared from the homepage, so a short
         // shared cache is safe and keeps a burst of visitors off the database.
-        "cache-control": feed.slug ? "public, max-age=300" : "no-cache",
+        "cache-control": browser ? "no-store" : feed.slug ? "public, max-age=300" : "no-cache",
       },
     });
   }),
