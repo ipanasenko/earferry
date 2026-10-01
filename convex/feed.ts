@@ -50,6 +50,20 @@ export async function signedVideoUrl(feedToken: string, itemId: string): Promise
   return `${mediaBaseUrl()}/media/${encodeURIComponent(feedToken)}/${encodeURIComponent(itemId)}.mp4?s=${sig}`;
 }
 
+// The RSS enclosures and browser players must use the same media and expiry rules.
+export async function feedMediaUrls(items: Array<Doc<"items">>, feedToken: string) {
+  const now = Date.now();
+  return Promise.all(
+    items.map(async (item) => ({
+      audio: item.mediaUrl ?? (await signedMediaUrl(feedToken, item._id)),
+      video:
+        (item.videoR2Key || item.videoUrl) && !(item.videoExpiresAt && item.videoExpiresAt <= now)
+          ? (item.videoUrl ?? (await signedVideoUrl(feedToken, item._id)))
+          : undefined,
+    })),
+  );
+}
+
 // Podcast apps play exactly one enclosure per item, and Pocket Casts treats a
 // video/mp4 enclosure as a video episode. When an MP4 was kept it takes the
 // enclosure slot and the MP3 moves to a Podcasting 2.0 alternate enclosure:
@@ -192,26 +206,15 @@ export async function buildFeed(
     feed.title ?? (displayName ? `EarFerry · Captained by ${displayName}` : "EarFerry");
   // Items store their signed Worker media URL when they become ready; sign on
   // the fly for anything that predates that.
-  const mediaUrls = await Promise.all(
-    items.map((item) => item.mediaUrl ?? signedMediaUrl(feed.feedToken, item._id)),
-  );
   // Same for the kept video: videoR2Key says an MP4 exists, and the URL is
   // re-signed only when a feed token rotation has dropped the stored one. A
   // video past its deadline is left out even before the cleanup removes it,
   // so the feed never points at an object that is about to vanish.
-  const now = Date.now();
-  const videoUrls = await Promise.all(
-    items.map((item) =>
-      (item.videoR2Key || item.videoUrl) && !(item.videoExpiresAt && item.videoExpiresAt <= now)
-        ? (item.videoUrl ?? signedVideoUrl(feed.feedToken, item._id))
-        : undefined,
-    ),
-  );
+  const mediaUrls = await feedMediaUrls(items, feed.feedToken);
 
   const entries = items
     .map((item, index) => {
-      const media = mediaUrls[index];
-      const video = videoUrls[index];
+      const { audio: media, video } = mediaUrls[index];
       const article = item.kind === "article";
       const fallbackTitle = article ? "Article audio" : "YouTube audio";
       const description = [
