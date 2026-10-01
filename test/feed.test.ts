@@ -5,6 +5,30 @@ import { buildFeed } from "../convex/feed";
 const privateFeed = { feedToken: "feed-token" };
 
 describe("podcast feed", () => {
+  test("publishes parenthesized description chapters in the RSS feed", async () => {
+    const item = {
+      _id: "item-id",
+      url: "https://www.youtube.com/watch?v=rNdfQ6mRXAQ",
+      title: "Uncle Bob",
+      description:
+        "In this episode, we cover:\n(00:00) Why technical expertise still matters with AI\n(05:27) Agile, customer contact and organisational change",
+      addedAt: 0,
+      status: "ready",
+      mediaUrl: "https://media.example/item.mp3",
+    } as unknown as Doc<"items">;
+
+    const feed = await buildFeed([item], "https://earferry.example", privateFeed);
+
+    expect(feed).toContain('<psc:chapters version="1.2">');
+    expect(feed).toContain(
+      '<psc:chapter start="00:00" title="Why technical expertise still matters with AI" />',
+    );
+    expect(feed).toContain(
+      '<psc:chapter start="05:27" title="Agile, customer contact and organisational change" />',
+    );
+    expect(feed).not.toContain('title="Intro"');
+  });
+
   test("falls back to the added time for legacy episodes", async () => {
     const addedAt = Date.parse("2026-08-27T09:30:00Z");
     const publishedAt = Date.parse("2020-01-02T03:04:05Z");

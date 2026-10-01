@@ -81,7 +81,7 @@ function xml(value: unknown = ""): string {
 
 const chapterTimestamp = String.raw`\d{1,4}:\d{2}(?::\d{2})?`;
 const chapterLine = new RegExp(
-  String.raw`^\s*(?:[-*+•]\s*)?(?:#{1,6}\s*)?(?:\*\*)?(?:\[(${chapterTimestamp})\]|(${chapterTimestamp}))(?:\*\*)?(?:\s*[-–—|:]\s*|\s+)(.+?)\s*$`,
+  String.raw`^\s*(?:[-*+•]\s*)?(?:#{1,6}\s*)?(?:\*\*)?(?:\[(${chapterTimestamp})\]|\((${chapterTimestamp})\)|(${chapterTimestamp}))(?:\*\*)?(?:\s*[-–—|:]\s*|\s+)(.+?)\s*$`,
   "u",
 );
 
@@ -106,9 +106,9 @@ export function parseYouTubeChapters(
     const match = line.match(chapterLine);
     if (!match) continue;
 
-    const start = match[1] ?? match[2];
+    const start = match[1] ?? match[2] ?? match[3];
     const seconds = timestampSeconds(start);
-    const title = match[3].trim();
+    const title = match[4].trim();
     if (seconds === null || !title) continue;
     chapters.push({ start, title, seconds, index });
   }
