@@ -152,7 +152,7 @@ export async function startExtraction(
     attemptToken: string;
     queueOrder: number;
     source: ExtractionSource;
-    // Also keep a 720p MP4; only meaningful for the youtube source.
+    // Also keep a 480p MP4; only meaningful for the youtube source.
     video?: boolean;
   },
 ): Promise<void> {
