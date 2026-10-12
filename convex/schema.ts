@@ -91,7 +91,7 @@ export default defineSchema({
     videoSizeBytes: v.optional(v.number()),
     // Signed Worker URL of the MP4, stored when ready like mediaUrl.
     videoUrl: v.optional(v.string()),
-    // The MP4 is dropped well before the MP3: video costs twenty times the
+    // The MP4 is dropped well before the MP3: video costs about six times the
     // storage and is watched once, if at all. The episode then stays as audio.
     videoExpiresAt: v.optional(v.number()),
     // Why the last extraction produced no MP4, as the container reported it.
