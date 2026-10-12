@@ -93,7 +93,7 @@ Convex -> Worker:
   `items/{itemId}.mp3` (artwork at `items/{itemId}.jpg`). With `video: true`
   (every YouTube item) the container downloads the video once as 480p H.264
   MP4 and one ffmpeg pass derives both files from it: the MP4 with a
-  loudness-normalized stereo track, stored at `items/{itemId}.mp4` before the
+  loudness-normalized mono track, stored at `items/{itemId}.mp4` before the
   audio upload completes, and the mono normalized MP3. When no MP4 rendition
   exists the audio-only download runs instead, so the episode is still
   published; the reason is stored on the item as `videoError`.
