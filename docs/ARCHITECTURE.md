@@ -101,7 +101,7 @@ Convex -> Worker:
 - `GET /jobs/{itemId}` -> durable execution state, used only for reconciliation.
 - `DELETE /jobs/{itemId}` -> cancel + delete R2 objects.
 - `DELETE /jobs/{itemId}/video` -> delete only the MP4. Convex schedules this
-  7 days after the item became ready (audio stays for 30); the episode then
+  3 days after the item became ready (audio stays for 30); the episode then
   falls back to its audio enclosure.
 - `GET /health` -> container health (proxied).
 
