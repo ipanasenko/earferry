@@ -22,7 +22,7 @@ import { feedItems, feedOwner, getOrCreateUserFeed, readyFeedItems, resolveFeed 
 const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 // A kept video is watched soon after it lands or not at all, and it costs
 // about six times the storage of the MP3, so it goes long before the audio.
-const VIDEO_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
+const VIDEO_RETENTION_MS = 3 * 24 * 60 * 60 * 1_000;
 
 // Keep scheduled/live items at the top of the visible playlist. Within the
 // waiting group and the remaining items, preserve the user's position order.

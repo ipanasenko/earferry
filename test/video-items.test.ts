@@ -3,7 +3,7 @@ import { api, internal } from "../convex/_generated/api";
 import { testConvex } from "./convexTest";
 
 const VIDEO_URL = "https://www.youtube.com/watch?v=abcdefghijk";
-const WEEK_MS = 7 * 24 * 60 * 60 * 1_000;
+const VIDEO_RETENTION_MS = 3 * 24 * 60 * 60 * 1_000;
 
 async function readyWithVideo(t: ReturnType<typeof testConvex>) {
   const asUser = t.withIdentity({ subject: "clerk|video" });
@@ -26,17 +26,19 @@ async function readyWithVideo(t: ReturnType<typeof testConvex>) {
 }
 
 describe("kept video", () => {
-  test("markReady stores the video with a one-week deadline and list exposes it", async () => {
+  test("markReady stores the video with a three-day deadline and list exposes it", async () => {
     const t = testConvex();
     const before = Date.now();
     const { asUser, itemId } = await readyWithVideo(t);
+    const after = Date.now();
 
     const item = await t.run(async (ctx) => ctx.db.get(itemId));
     expect(item?.status).toBe("ready");
     expect(item?.videoR2Key).toBe(`items/${itemId}.mp4`);
     expect(item?.videoSizeBytes).toBe(50_000);
     expect(item?.videoUrl).toBe("https://media.example/item.mp4?s=sig");
-    expect(item?.videoExpiresAt).toBeGreaterThanOrEqual(before + WEEK_MS);
+    expect(item?.videoExpiresAt).toBeGreaterThanOrEqual(before + VIDEO_RETENTION_MS);
+    expect(item?.videoExpiresAt).toBeLessThanOrEqual(after + VIDEO_RETENTION_MS);
     // The audio keeps its own, longer deadline.
     expect(item?.expiresAt).toBeGreaterThan(item?.videoExpiresAt ?? Infinity);
 
@@ -108,7 +110,7 @@ describe("kept video", () => {
         videoR2Key: `items/${itemId}.mp4`,
         videoSizeBytes: 1,
         videoUrl: "https://media.example/stale.mp4",
-        videoExpiresAt: Date.now() + WEEK_MS,
+        videoExpiresAt: Date.now() + VIDEO_RETENTION_MS,
       }),
     );
 
