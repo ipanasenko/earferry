@@ -24,14 +24,21 @@ const AUDIO_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 // about six times the storage of the MP3, so it goes long before the audio.
 const VIDEO_RETENTION_MS = 3 * 24 * 60 * 60 * 1_000;
 
-// Keep scheduled/live items at the top of the visible playlist. Within the
-// waiting group and the remaining items, preserve the user's position order.
+// Keep scheduled/live items at the top of the visible playlist, then failed
+// items so they are not missed. Within each group, preserve the user's
+// position order.
+function playlistTier(status: Doc<"items">["status"]): number {
+  if (status === "waiting") return 0;
+  if (status === "failed") return 1;
+  return 2;
+}
+
 function playlistOrder(
   left: Pick<Doc<"items">, "status" | "position">,
   right: Pick<Doc<"items">, "status" | "position">,
 ): number {
-  const waitingPriority = Number(right.status === "waiting") - Number(left.status === "waiting");
-  return waitingPriority || right.position - left.position;
+  const tierPriority = playlistTier(left.status) - playlistTier(right.status);
+  return tierPriority || right.position - left.position;
 }
 
 export function renewedAudioExpiry(now = Date.now()): number {
