@@ -179,12 +179,16 @@ export function sha256Hex(input: string): string {
 // The extractor's error text must never reach a queue card verbatim. These
 // patterns must match the ones in the container image (container/server.js in
 // the private repo); classification depends on the exact strings.
+// "refusing downloads" is the extractor's own access-block message, which also
+// sits on failed items stored before these messages were reworded.
 const ACCESS_BLOCKED =
-  /not a bot|sign in to confirm|http error 40[39]\b|http error 429\b|failed to extract any player response/i;
+  /not a bot|sign in to confirm|http error 40[39]\b|http error 429\b|failed to extract any player response|no playable formats|refusing downloads/i;
 const UNAVAILABLE_VIDEO = /private|removed|deleted|members.only|sign in|not available/i;
+// These messages are stored only once automatic retries are used up, so they
+// must not promise another attempt.
 const ACCESS_BLOCKED_FAILURE = {
   permanent: false,
-  message: "YouTube is refusing downloads right now. Trying again shortly",
+  message: "YouTube kept refusing the download. Retry in a little while",
 } as const;
 const UNAVAILABLE_VIDEO_FAILURE = {
   permanent: true,
@@ -192,7 +196,7 @@ const UNAVAILABLE_VIDEO_FAILURE = {
 } as const;
 const GENERIC_FAILURE = {
   permanent: false,
-  message: "We couldn't finish extracting this video. Trying again shortly",
+  message: "We couldn't extract this video. Retry in a little while",
 } as const;
 // Article failures come from the reader/TTS side of the extractor rather than
 // yt-dlp: a paywall or an unreadable page is permanent, anything else retries.
@@ -209,7 +213,7 @@ const ARTICLE_UNREADABLE_FAILURE = {
 } as const;
 const ARTICLE_GENERIC_FAILURE = {
   permanent: false,
-  message: "We couldn't finish narrating this article. Trying again shortly",
+  message: "We couldn't narrate this article. Retry in a little while",
 } as const;
 const USER_FACING_FAILURES = [
   ACCESS_BLOCKED_FAILURE,
