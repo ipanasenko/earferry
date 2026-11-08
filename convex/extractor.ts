@@ -282,6 +282,9 @@ export const run = internalAction({
         await ctx.scheduler.runAfter(30_000, internal.extractor.recover, { itemId: args.itemId });
         return;
       }
+      // The item keeps only the user-facing message, so this log is the one
+      // place the extractor's reason for a failed probe survives.
+      console.warn(`Probe failed for item ${args.itemId}: ${detail}`);
       // Transient trouble (network, extractor restart, YouTube throttling)
       // gets the same bounded auto-retry as extraction failures do.
       await ctx.runMutation(internal.items.retryOrFail, {
