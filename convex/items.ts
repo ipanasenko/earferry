@@ -128,6 +128,9 @@ export const dispatchNext = internalMutation({
       const startedAt = Date.now();
       await ctx.db.patch(item._id, {
         status: "probing",
+        // The playlist follows the latest extraction attempt, so an item that
+        // sat waiting or queued comes back to the top once it is being worked on.
+        position: item.feedId ? await topPosition(ctx, item.feedId) : item.position,
         phase: item.kind === "article" ? "Checking article" : "Checking video",
         extractionStartedAt: startedAt,
       });

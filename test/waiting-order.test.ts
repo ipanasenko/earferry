@@ -105,3 +105,38 @@ describe("waiting item ordering", () => {
     expect(feed!.items.map((item) => item.videoId)).toEqual(["waiting-item", "ready-item"]);
   });
 });
+
+describe("extraction attempt ordering", () => {
+  test("moves an item to the top of the playlist when its extraction starts", async () => {
+    const t = testConvex();
+    await t.run(async (ctx) => {
+      const feedId = await ctx.db.insert("feeds", { feedToken: "token", createdAt: 0 });
+      await ctx.db.insert("users", { clerkId: "clerk|a", feedId, createdAt: 0 });
+      await ctx.db.insert("items", {
+        feedId,
+        url: YOUTUBE_URL,
+        videoId: "long-waiting-item",
+        addedAt: 0,
+        position: 1,
+        status: "queued",
+        nextAttemptAt: 0,
+      });
+      await ctx.db.insert("items", {
+        feedId,
+        url: YOUTUBE_URL,
+        videoId: "ready-item",
+        addedAt: 0,
+        position: 2,
+        status: "ready",
+      });
+    });
+
+    await t.mutation(internal.items.dispatchNext, {});
+
+    const items = await t.withIdentity({ subject: "clerk|a" }).query(internal.items.list, {});
+    expect(items.map((item) => [item.videoId, item.status])).toEqual([
+      ["long-waiting-item", "probing"],
+      ["ready-item", "ready"],
+    ]);
+  });
+});
